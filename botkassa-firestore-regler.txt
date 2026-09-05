@@ -1,0 +1,22 @@
+IKKE en fil for repoet ditt — dette limes inn i Firebase Console:
+https://console.firebase.google.com/project/pickle-rank-5fbe5/firestore/rules
+
+Lim inn rett før den siste "}}" i firestore.rules, og trykk Publiser.
+Samme tillitsmodell som resten av filen din: strukturell validering
+av feltnavn/typer, ingen ekte tilgangskontroll (PIN er kun
+klient-sjekket, se varselet øverst i din egen firestore.rules).
+
+    match /botkasseParagrafer/{klubbId} {
+      allow read: if true;
+      allow write: if request.resource.data.paragrafer is list;
+    }
+    match /botkasseInnmeldinger/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.status in ['venter','godkjent','avvist'];
+      allow delete: if true;
+    }
+    match /botkasseBoter/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.klubbId is string && request.resource.data.belop is number;
+      allow delete: if true;
+    }

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#050f1f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Botkassa</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="botkassa.css">
+</head>
+<body>
+
+<!-- ── TOAST / FEILBANNERE ── -->
+<div id="toast" class="toast"></div>
+<div id="firebase-feil-banner" class="firebase-feil-banner">
+  <span id="firebase-feil-tekst"></span>
+</div>
+
+<!-- ── HJEM (klubbvelger) ── -->
+<div id="skjerm-hjem" class="screen active">
+  <div class="scroll-omrade">
+    <div class="hjem-wrap">
+      <div class="hjem-emoji">🥒</div>
+      <div class="hjem-tittel">BOTKASSA</div>
+      <div class="hjem-undertittel">«Spill pent. Eller betal.»</div>
+    </div>
+
+    <div class="seksjon-etikett">Velg klubb</div>
+    <select id="klubb-velger" onchange="byttKlubb(this.value)">
+      <option value="">— Velg klubb —</option>
+      <option value="pickleball-jaeren">Pickleball Jæren</option>
+      <option value="fokus-pickleball">Fokus Pickleball</option>
+      <option value="tsi-pickleball">TSI Pickleball</option>
+      <option value="loten-pickleball">Løten Tennisklubb</option>
+      <option value="demo">Demo</option>
+    </select>
+    <div id="demo-info" class="bk-verkty-notis" style="display:none;margin-top:14px">
+      Demo-modus — alle er automatisk admin, ingen PIN kreves.
+    </div>
+  </div>
+</div>
+
+<!-- ── BOTKASSA — HJEM ── -->
+<div id="skjerm-botkassa-hjem" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('hjem')">←</button>
+    <div class="app-logo">🥒</div>
+    <div style="flex:1">
+      <div class="app-name">Botkassa</div>
+      <div class="app-sub" id="botkassa-hjem-klubbnavn">—</div>
+    </div>
+    <div class="header-right" style="display:flex;gap:8px;flex-shrink:0">
+      <button class="knapp knapp-omriss knapp-liten" onclick="window.visBotkassaAdmin?.()">👮 Admin</button>
+    </div>
+  </div>
+  <div class="scroll-omrade">
+    <div class="bk-hero">
+      <div class="bk-hero-emoji">🥒</div>
+      <div class="bk-hero-tittel">BOTKASSA</div>
+      <div class="bk-hero-tagline">«Spill pent. Eller betal.»</div>
+    </div>
+
+    <div class="seksjon-etikett">Denne sesongen</div>
+    <div class="bk-stat-grid" id="botkassa-hjem-stats">
+      <div class="laster" style="grid-column:1/-1"><span class="laster-snurr"></span> Henter tall …</div>
+    </div>
+
+    <div style="margin-top:22px">
+      <button class="knapp knapp-primaer" style="font-size:26px;padding:20px" onclick="window.visBotkassaMeld?.()">+ MELD INN BOT</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="knapp knapp-omriss" onclick="window.visBotkassaFeed?.()">🚨 Feed</button>
+      <button class="knapp knapp-omriss" onclick="window.visBotkassaStats?.()">🏆 Statistikk</button>
+      <button class="knapp knapp-omriss" onclick="window.visBotkassaRegler?.()">📖 Regler</button>
+    </div>
+
+    <div class="seksjon-etikett" style="margin-top:26px">🚨 Siste i feeden</div>
+    <div id="botkassa-hjem-feed"><div class="laster"><span class="laster-snurr"></span> Laster feed …</div></div>
+  </div>
+</div>
+
+<!-- ── BOTKASSA — MELD INN BOT ── -->
+<div id="skjerm-botkassa-meld" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Meld inn bot</div>
+      <div class="app-sub">Går til botkontroll for godkjenning</div>
+    </div>
+  </div>
+  <div class="scroll-omrade">
+    <label>Ditt navn (den som melder inn)</label>
+    <select id="botkassa-meld-mittnavn" style="margin-bottom:18px"></select>
+
+    <label>Hvem gjelder det?</label>
+    <div class="bk-spiller-liste" id="botkassa-meld-spillerliste" style="margin-bottom:18px"></div>
+
+    <label>Paragraf</label>
+    <div id="botkassa-meld-paragrafliste" style="margin-bottom:6px"></div>
+    <div id="botkassa-meld-belop-info" class="bk-liten-tekst" style="margin-bottom:18px"></div>
+
+    <label>Eventuell kommentar</label>
+    <textarea id="botkassa-meld-kommentar" placeholder="F.eks. «Ola påstod at ballen var ute. 6 personer så at den traff linjen.»" style="margin-bottom:22px"></textarea>
+
+    <button class="knapp knapp-primaer" id="botkassa-meld-send-btn" onclick="window.botkassaSendInnmelding()">Send inn →</button>
+    <p class="bk-liten-tekst" style="text-align:center;margin-top:12px">Ingen bot registreres automatisk — botansvarlig godkjenner eller avviser først.</p>
+  </div>
+</div>
+
+<!-- ── BOTKASSA — FEED ── -->
+<div id="skjerm-botkassa-feed" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Dagens bøter</div>
+      <div class="app-sub">Godkjente bøter denne sesongen</div>
+    </div>
+  </div>
+  <div class="scroll-omrade"><div id="botkassa-feed-innhold"></div></div>
+</div>
+
+<!-- ── BOTKASSA — STATISTIKK ── -->
+<div id="skjerm-botkassa-stats" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Statistikk</div>
+      <div class="app-sub">Botligaen og årets titler</div>
+    </div>
+  </div>
+  <div class="scroll-omrade"><div id="botkassa-stats-innhold"></div></div>
+</div>
+
+<!-- ── BOTKASSA — REGLER ── -->
+<div id="skjerm-botkassa-regler" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Hensikt og regler</div>
+      <div class="app-sub">Botkassereglementet</div>
+    </div>
+  </div>
+  <div class="scroll-omrade"><div id="botkassa-regler-innhold"></div></div>
+</div>
+
+<!-- ── BOTKASSA — ADMIN (Botkontroll) ── -->
+<div id="skjerm-botkassa-admin" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Botkontroll</div>
+      <div class="app-sub">Godkjenn, avvis og juster bøter</div>
+    </div>
+  </div>
+  <div class="scroll-omrade">
+    <div class="bk-tabs" id="botkassa-admin-tabs">
+      <div class="bk-tab aktiv" data-tab="kø" onclick="window.botkassaByttAdminTab('kø')">Til behandling</div>
+      <div class="bk-tab" data-tab="bøter" onclick="window.botkassaByttAdminTab('bøter')">Bøter &amp; betaling</div>
+      <div class="bk-tab" data-tab="paragrafer" onclick="window.botkassaByttAdminTab('paragrafer')">Paragrafer</div>
+    </div>
+    <div id="botkassa-admin-innhold"></div>
+  </div>
+</div>
+
+<!-- ── PIN-MODAL (admin) ── -->
+<div class="modal-bakgrunn" id="modal-pin" onclick="if(event.target===this)lukkPinModal()">
+  <div class="modal">
+    <div class="modal-tittel" id="pin-tittel">Admin</div>
+    <div class="modal-tekst" id="pin-tekst"></div>
+    <div class="pin-rad">
+      <input class="pin-siffer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="pin0" oninput="pinInput(0)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input class="pin-siffer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="pin1" oninput="pinInput(1)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input class="pin-siffer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="pin2" oninput="pinInput(2)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input class="pin-siffer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="pin3" oninput="pinInput(3)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+    </div>
+    <div class="pin-feil" id="pin-feil"></div>
+    <button class="knapp knapp-omriss" style="width:100%" onclick="lukkPinModal()">Avbryt</button>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+}
+</script>
+</body>
+</html>
