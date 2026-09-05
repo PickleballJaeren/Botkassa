@@ -73,6 +73,7 @@ function renderInnhold() {
   if (aktivTab === 'kø')         return renderKo();
   if (aktivTab === 'bøter')      return renderBoter();
   if (aktivTab === 'paragrafer') return renderParagrafer();
+  if (aktivTab === 'del')        return renderDel();
 }
 
 function renderVelgNavn() {
@@ -191,4 +192,41 @@ window.botkassaLagreParagraf = async function(i) {
     await lagreParagrafer(klubbId, paragrafer);
     visMelding('Paragraf oppdatert');
   } catch (e) { visMelding('Kunne ikke lagre — sjekk firestore-reglene', 'feil'); }
+};
+
+// ── Del appen (QR-kode + lenke) ──
+function renderDel() {
+  const el    = document.getElementById('botkassa-admin-innhold');
+  const lenke = location.origin + location.pathname;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(lenke)}`;
+
+  el.innerHTML = `
+    <p class="bk-verkty-notis">Del lenken eller QR-koden med spillerne — de åpner den rett i nettleseren, ingen app store nødvendig. Fungerer best hvis de i tillegg legger den til på hjemskjermen.</p>
+    <div style="display:flex;justify-content:center;margin-bottom:18px">
+      <img src="${qrUrl}" alt="QR-kode til Botkassa" width="220" height="220" style="border-radius:14px;background:#fff;padding:10px">
+    </div>
+    <label>Lenke til appen</label>
+    <div class="bk-inline-input" style="margin-bottom:14px">
+      <input type="text" id="bk-del-lenke" value="${escHtml(lenke)}" readonly onclick="this.select()">
+      <button class="knapp knapp-omriss knapp-liten" onclick="window.botkassaKopierLenke()">Kopier</button>
+    </div>
+    ${navigator.share ? `<button class="knapp knapp-primaer" onclick="window.botkassaDelLenke()">📤 Del …</button>` : ''}
+  `;
+}
+window.botkassaKopierLenke = function() {
+  const inp = document.getElementById('bk-del-lenke');
+  if (!inp) return;
+  inp.select();
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(inp.value)
+      .then(() => visMelding('Lenke kopiert!'))
+      .catch(() => visMelding('Kunne ikke kopiere — marker og kopier manuelt', 'advarsel'));
+  } else {
+    document.execCommand('copy');
+    visMelding('Lenke kopiert!');
+  }
+};
+window.botkassaDelLenke = function() {
+  const lenke = document.getElementById('bk-del-lenke')?.value || (location.origin + location.pathname);
+  navigator.share({ title: 'Botkassa', text: 'Meld inn og se bøter i Botkassa 🥒', url: lenke }).catch(() => {});
 };

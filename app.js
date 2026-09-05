@@ -1,13 +1,13 @@
 // ════════════════════════════════════════════════════════
-// app.js — Oppstart, klubbvalg og modulkobling
-// Botkassa — dedikert app.
+// app.js — Oppstart og modulkobling
+// Botkassa — dedikert app for Pickleball Jæren.
 // ════════════════════════════════════════════════════════
 import { db } from './firebase.js';
 import { naviger, visMelding, visFBFeil, registrerBeforeunload } from './ui.js';
 import {
   registrerPinGetter, registrerKlubbIdGetter,
   krevAdmin as krevAdminBase,
-  getErAdmin, setErAdmin, gjenopprettAdminStatus, nullstillAdmin,
+  getErAdmin, gjenopprettAdminStatus,
   pinInput, bekreftPin, lukkPinModal,
 } from './admin.js';
 import { botkassaUIInit, visBotkassaOversikt } from './botkassa-ui.js';
@@ -20,48 +20,16 @@ window.lukkPinModal = lukkPinModal;
 window.visBotkassaOversikt = visBotkassaOversikt;
 
 // ════════════════════════════════════════════════════════
-// KLUBBER — samme klubbliste/PIN-oppsett som resten av
-// klubbens apper, slik at PIN-en er den samme overalt.
+// KLUBB — appen er dedikert til Pickleball Jæren.
+// Samme PIN som resten av klubbens apper (Stafettligaen/Mesteren).
 // ════════════════════════════════════════════════════════
-const KLUBBER = {
-  'pickleball-jaeren': { navn: 'Pickleball Jæren', pin: '9436', demo: false },
-  'fokus-pickleball':  { navn: 'Fokus Pickleball',  pin: '4350', demo: false },
-  'tsi-pickleball':    { navn: 'TSI Pickleball',    pin: '9299', demo: false },
-  'loten-pickleball':  { navn: 'Løten Tennisklubb', pin: '2341', demo: false },
-  'demo':              { navn: 'Demo',               pin: null,  demo: true  },
-};
+const AKTIV_KLUBB_ID = 'pickleball-jaeren';
+const AKTIV_KLUBB    = { navn: 'Pickleball Jæren', pin: '9436' };
 
-let aktivKlubbId = null;
-
-function getAktivKlubb() {
-  return aktivKlubbId ? (KLUBBER[aktivKlubbId] ?? null) : null;
-}
-function getAdminPin() {
-  return getAktivKlubb()?.pin ?? null;
-}
 function krevAdminMedDemo(tittel, tekst, callback) {
-  krevAdminBase(tittel, tekst, callback, !!getAktivKlubb()?.demo);
+  krevAdminBase(tittel, tekst, callback, false);
 }
 window.krevAdmin = krevAdminMedDemo;
-
-window.byttKlubb = function (klubbId) {
-  if (!klubbId || !KLUBBER[klubbId]) {
-    aktivKlubbId = null;
-    return;
-  }
-  const forrigeKlubbId = aktivKlubbId;
-  aktivKlubbId = klubbId;
-  registrerKlubbIdGetter(() => aktivKlubbId);
-  registrerPinGetter(getAdminPin);
-
-  if (forrigeKlubbId && forrigeKlubbId !== klubbId) nullstillAdmin();
-
-  const erAdminFraForrige = gjenopprettAdminStatus();
-  if (!erAdminFraForrige) setErAdmin(KLUBBER[klubbId].demo);
-
-  visMelding('Klubb valgt: ' + KLUBBER[klubbId].navn);
-  window.visBotkassaOversikt();
-};
 window.getErAdmin = getErAdmin;
 
 // ════════════════════════════════════════════════════════
@@ -73,27 +41,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  registrerKlubbIdGetter(() => AKTIV_KLUBB_ID);
+  registrerPinGetter(() => AKTIV_KLUBB.pin);
+  gjenopprettAdminStatus();
+
   botkassaUIInit({
     naviger,
-    getAktivKlubbId: () => aktivKlubbId,
-    getKlubbNavn: () => getAktivKlubb()?.navn ?? '',
+    getAktivKlubbId: () => AKTIV_KLUBB_ID,
+    getKlubbNavn: () => AKTIV_KLUBB.navn,
   });
   botkassaAdminUIInit({
     naviger,
     krevAdmin: krevAdminMedDemo,
-    getAktivKlubbId: () => aktivKlubbId,
+    getAktivKlubbId: () => AKTIV_KLUBB_ID,
   });
 
   registrerBeforeunload(() => false);
 
-  // Velg klubb automatisk hvis ?klubb=X finnes i lenken, ellers vis hjem-skjerm
-  const urlParams = new URLSearchParams(location.search);
-  const urlKlubbId = urlParams.get('klubb');
-  if (urlKlubbId && KLUBBER[urlKlubbId]) {
-    const velger = document.getElementById('klubb-velger');
-    if (velger) velger.value = urlKlubbId;
-    window.byttKlubb(urlKlubbId);
-  } else {
-    naviger('hjem');
-  }
+  naviger('botkassa-hjem');
+  visBotkassaOversikt();
 });

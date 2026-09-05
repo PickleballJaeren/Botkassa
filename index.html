@@ -22,34 +22,9 @@
   <span id="firebase-feil-tekst"></span>
 </div>
 
-<!-- ── HJEM (klubbvelger) ── -->
-<div id="skjerm-hjem" class="screen active">
-  <div class="scroll-omrade">
-    <div class="hjem-wrap">
-      <div class="hjem-emoji">🥒</div>
-      <div class="hjem-tittel">BOTKASSA</div>
-      <div class="hjem-undertittel">«Spill pent. Eller betal.»</div>
-    </div>
-
-    <div class="seksjon-etikett">Velg klubb</div>
-    <select id="klubb-velger" onchange="byttKlubb(this.value)">
-      <option value="">— Velg klubb —</option>
-      <option value="pickleball-jaeren">Pickleball Jæren</option>
-      <option value="fokus-pickleball">Fokus Pickleball</option>
-      <option value="tsi-pickleball">TSI Pickleball</option>
-      <option value="loten-pickleball">Løten Tennisklubb</option>
-      <option value="demo">Demo</option>
-    </select>
-    <div id="demo-info" class="bk-verkty-notis" style="display:none;margin-top:14px">
-      Demo-modus — alle er automatisk admin, ingen PIN kreves.
-    </div>
-  </div>
-</div>
-
 <!-- ── BOTKASSA — HJEM ── -->
-<div id="skjerm-botkassa-hjem" class="screen">
+<div id="skjerm-botkassa-hjem" class="screen active">
   <div class="app-header">
-    <button class="tilbake-btn" onclick="naviger('hjem')">←</button>
     <div class="app-logo">🥒</div>
     <div style="flex:1">
       <div class="app-name">Botkassa</div>
@@ -164,6 +139,7 @@
       <div class="bk-tab aktiv" data-tab="kø" onclick="window.botkassaByttAdminTab('kø')">Til behandling</div>
       <div class="bk-tab" data-tab="bøter" onclick="window.botkassaByttAdminTab('bøter')">Bøter &amp; betaling</div>
       <div class="bk-tab" data-tab="paragrafer" onclick="window.botkassaByttAdminTab('paragrafer')">Paragrafer</div>
+      <div class="bk-tab" data-tab="del" onclick="window.botkassaByttAdminTab('del')">Del appen</div>
     </div>
     <div id="botkassa-admin-innhold"></div>
   </div>
