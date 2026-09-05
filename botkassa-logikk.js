@@ -132,8 +132,12 @@ export async function avvisInnmelding(innmeldingId, behandletAvNavn) {
 /**
  * Godkjenner en innmelding. Oppretter én bot-post per spiller i
  * motSpillere (relevant for lagstraffer). Kjører karma-sjekk per
- * spiller: har vedkommende TIDLIGERE selv meldt inn noen for samme
- * paragraf? Doble i så fall boten deres.
+ * spiller, med en "ladning"-modell: hver gang vedkommende selv har
+ * meldt inn noen andre for en paragraf, lader de opp én mulig
+ * dobling mot seg selv for samme paragraf. Ladningen brukes opp
+ * neste gang de selv bøtelegges for den paragrafen (dobler boten),
+ * og er da borte — helt til de melder inn på nytt og lader opp en
+ * ny ladning.
  *
  * @param {object} innmelding      — dokument fra lyttPaVentende (inkl. id)
  * @param {number} baseBelop       — endelig/justert beløp før evt. karma
@@ -143,14 +147,28 @@ export async function godkjennInnmelding(innmelding, baseBelop, behandletAvNavn)
   const { klubbId, motSpillere, paragrafId, paragrafTittel, meldtAvId, meldtAvNavn, kommentar } = innmelding;
 
   for (const mot of motSpillere) {
-    const karmaSnap = await getDocs(query(
+    // Hvor mange ganger har spilleren selv meldt inn noen for denne paragrafen?
+    const meldtSnap = await getDocs(query(
       collection(db, SAM.BOTER),
       where('klubbId', '==', klubbId),
       where('meldtAvId', '==', mot.id),
       where('paragrafId', '==', paragrafId),
-      limit(1),
     ));
-    const karmaTreff   = !karmaSnap.empty;
+    const antallLadninger = meldtSnap.size;
+
+    let karmaTreff = false;
+    if (antallLadninger > 0) {
+      // Hvor mange av disse ladningene er allerede brukt opp mot spilleren selv?
+      const karmaBruktSnap = await getDocs(query(
+        collection(db, SAM.BOTER),
+        where('klubbId', '==', klubbId),
+        where('spillerId', '==', mot.id),
+        where('paragrafId', '==', paragrafId),
+        where('karmaDoblet', '==', true),
+      ));
+      karmaTreff = karmaBruktSnap.size < antallLadninger;
+    }
+
     const endeligBelop = karmaTreff ? baseBelop * 2 : baseBelop;
 
     await addDoc(collection(db, SAM.BOTER), {
