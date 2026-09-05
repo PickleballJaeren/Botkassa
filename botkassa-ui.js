@@ -75,7 +75,7 @@ function lasterHtml(tekst) {
 function renderHjemStats() {
   const el = document.getElementById('botkassa-hjem-stats');
   if (!boter.length) {
-    el.innerHTML = `<div class="tom-tilstand" style="grid-column:1/-1">Ingen bøter registrert ennå denne sesongen. 🥒</div>`;
+    el.innerHTML = `<div class="tom-tilstand" style="grid-column:1/-1">Ingen bøter registrert ennå denne sesongen. <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`;
     return;
   }
   const sum         = boter.reduce((s,b) => s + (b.belop||0), 0);
@@ -99,7 +99,7 @@ function renderFeedPreview() {
 
 function renderFeedFull() {
   const el = document.getElementById('botkassa-feed-innhold');
-  if (!boter.length) { el.innerHTML = `<div class="tom-tilstand">Ingen godkjente bøter ennå. Vær den første til å melde inn en! 🥒</div>`; return; }
+  if (!boter.length) { el.innerHTML = `<div class="tom-tilstand">Ingen godkjente bøter ennå. Vær den første til å melde inn en! <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`; return; }
   el.innerHTML = boter.map(feedKortHtml).join('');
 }
 
@@ -146,7 +146,7 @@ function renderStats() {
   el.innerHTML = `
     <div class="seksjon-etikett">🏆 Årets titler</div>
     <div class="bk-title-grid" style="margin-bottom:20px">
-      <div class="bk-title-card"><div class="bk-title-emoji">🥒</div><div class="bk-title-navn">${escHtml(sylteagurk?.key ?? '—')}</div><div class="bk-title-label">Årets sylteagurk<br>(flest bøter)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji"><img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div><div class="bk-title-navn">${escHtml(sylteagurk?.key ?? '—')}</div><div class="bk-title-label">Årets sylteagurk<br>(flest bøter)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">👮</div><div class="bk-title-navn">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-title-label">Årets botpoliti<br>(flest innmeldinger)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">⚖️</div><div class="bk-title-navn">${escHtml(dommer?.key ?? '—')}</div><div class="bk-title-label">Årets dommer<br>(flest godkjente)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">💸</div><div class="bk-title-navn">${escHtml(bidragsyter?.key ?? '—')}</div><div class="bk-title-label">Årets bidragsyter<br>(høyest sum)</div></div>

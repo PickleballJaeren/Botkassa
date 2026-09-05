@@ -97,7 +97,7 @@ window.botkassaSettAdminNavn = function() {
 // ── Til behandling ──
 function renderKo() {
   const el = document.getElementById('botkassa-admin-innhold');
-  if (!ventende.length) { el.innerHTML = `<div class="tom-tilstand">Ingen innmeldinger venter. 🥒</div>`; return; }
+  if (!ventende.length) { el.innerHTML = `<div class="tom-tilstand">Ingen innmeldinger venter. <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`; return; }
   el.innerHTML = ventende.map(im => `
     <div class="bk-admin-card">
       <div class="bk-admin-head"><div><strong>${escHtml(im.meldtAvNavn)}</strong> → ${escHtml(im.motSpillere.map(m=>m.navn).join(', '))}</div></div>

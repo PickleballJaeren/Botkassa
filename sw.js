@@ -3,7 +3,7 @@
 // Cache-shell strategi, network-first for alt lokalt innhold,
 // Firebase/Firestore går alltid direkte til nett.
 // ════════════════════════════════════════════════════════
-const VERSJON    = 11;
+const VERSJON    = 12;
 const CACHE_NAVN = `botkassa-v${VERSJON}`;
 
 const SHELL = [
@@ -21,6 +21,7 @@ const SHELL = [
   './icon-192.png',
   './icon-512.png',
   './klubbmerke.png',
+  './agurkseddel.png',
 ];
 
 self.addEventListener('install', e => {

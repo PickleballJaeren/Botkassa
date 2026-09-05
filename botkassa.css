@@ -164,3 +164,4 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-verkty-notis{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--yellow);margin-bottom:14px;line-height:1.4}
 .bk-rad-mellom{display:flex;justify-content:space-between;align-items:center;padding:8px 0}
 .bk-liten-tekst{font-size:13px;color:var(--muted)}
+.agurk-emoji{height:1em;width:auto;vertical-align:-0.15em;border-radius:2px;display:inline-block}
