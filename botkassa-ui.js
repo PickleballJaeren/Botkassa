@@ -220,6 +220,10 @@ export function visBotkassaMeld() {
   navnSelect.innerHTML = `<option value="" disabled selected>Velg deg selv …</option>` +
     spillere.map(s => `<option value="${s.id}">${escHtml(s.navn)}</option>`).join('');
 
+  const klubbId  = _getAktivKlubbId();
+  const lagretId = klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId);
+  if (lagretId && spillere.some(s => s.id === lagretId)) navnSelect.value = lagretId;
+
   const spillerListe = document.getElementById('botkassa-meld-spillerliste');
   spillerListe.innerHTML = spillere.length
     ? spillere.map(s => `
@@ -239,6 +243,11 @@ export function visBotkassaMeld() {
   document.getElementById('botkassa-meld-belop-info').textContent = '';
 }
 window.visBotkassaMeld = visBotkassaMeld;
+
+window.botkassaLagreMittNavn = function(id) {
+  const klubbId = _getAktivKlubbId();
+  if (klubbId && id) localStorage.setItem('bk_mitt_navn_id_' + klubbId, id);
+};
 
 window.botkassaToggleSpiller = function(id) {
   if (valgteSpillereIds.has(id)) valgteSpillereIds.delete(id); else valgteSpillereIds.add(id);

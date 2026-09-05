@@ -72,7 +72,7 @@
   </div>
   <div class="scroll-omrade">
     <label>Ditt navn (den som melder inn)</label>
-    <select id="botkassa-meld-mittnavn" style="margin-bottom:18px"></select>
+    <select id="botkassa-meld-mittnavn" style="margin-bottom:18px" onchange="window.botkassaLagreMittNavn?.(this.value)"></select>
 
     <label>Hvem gjelder det?</label>
     <div class="bk-spiller-liste" id="botkassa-meld-spillerliste" style="margin-bottom:18px"></div>
