@@ -1,7 +1,7 @@
 {
   "name": "Botkassa",
   "short_name": "Botkassa",
-  "description": "Spill pent. Eller betal. Botkasse-app for klubben.",
+  "description": "Her straffer vi dårlig oppførsel — ikke dårlige slag. Botkasse-app for klubben.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
