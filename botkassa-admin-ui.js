@@ -175,14 +175,45 @@ function renderParagrafer() {
     <p class="bk-verkty-notis">Endringer her gjelder for hele klubben og vises umiddelbart på "Meld inn bot"- og "Regler"-sidene.</p>
     ${paragrafer.map((p,i) => `
       <div class="bk-admin-card">
-        <div class="bk-rad-mellom"><div>${p.emoji} <strong>§${p.num} — ${escHtml(p.tittel)}</strong></div></div>
+        <div class="bk-rad-mellom">
+          <div>${p.emoji} <strong>§${p.num} — ${escHtml(p.tittel)}</strong></div>
+          <button class="knapp knapp-omriss knapp-liten" style="color:var(--red2);border-color:rgba(220,38,38,.4)" onclick="window.botkassaFjernParagraf(${i})">Fjern</button>
+        </div>
         <div class="bk-inline-input" style="margin-top:8px">
           <input type="number" id="bk-par-belop-${p.id}" value="${p.belop}" ${p.ingenFast ? 'placeholder="Skjønn — ingen fast sats"' : ''}>
           <button class="knapp knapp-primaer knapp-liten" onclick="window.botkassaLagreParagraf(${i})">Lagre</button>
         </div>
       </div>`).join('')}
+
+    <div class="bk-admin-card">
+      <div class="bk-rad-mellom"><div><strong>➕ Legg til ny paragraf</strong></div></div>
+      <p class="bk-liten-tekst" style="margin-bottom:10px">Bruk denne til f.eks. en jokerparagraf for rare/morsomme episoder som ikke passer noe annet sted.</p>
+      <label>Emoji</label>
+      <input type="text" id="bk-ny-par-emoji" placeholder="🃏" maxlength="4" style="margin-bottom:10px">
+      <label>Tittel</label>
+      <input type="text" id="bk-ny-par-tittel" placeholder="F.eks. «Annet (skjønnssak)»" style="margin-bottom:10px">
+      <label>Type</label>
+      <select id="bk-ny-par-type" onchange="window.botkassaByttNyParagrafType()" style="margin-bottom:10px">
+        <option value="fast">Fast beløp</option>
+        <option value="skjonn">Skjønn — botansvarlig bestemmer beløp ved godkjenning</option>
+      </select>
+      <div id="bk-ny-par-fast-felt">
+        <label>Beløp (kr)</label>
+        <input type="number" id="bk-ny-par-belop" placeholder="20" style="margin-bottom:10px">
+      </div>
+      <div id="bk-ny-par-skjonn-felt" style="display:none;gap:8px" class="bk-inline-input">
+        <input type="number" id="bk-ny-par-min" placeholder="Min kr">
+        <input type="number" id="bk-ny-par-maks" placeholder="Maks kr">
+      </div>
+      <button class="knapp knapp-primaer" style="margin-top:4px" onclick="window.botkassaLeggTilParagraf()">Legg til</button>
+    </div>
   `;
 }
+window.botkassaByttNyParagrafType = function() {
+  const type = document.getElementById('bk-ny-par-type').value;
+  document.getElementById('bk-ny-par-fast-felt').style.display   = type === 'fast'   ? 'block' : 'none';
+  document.getElementById('bk-ny-par-skjonn-felt').style.display = type === 'skjonn' ? 'flex'  : 'none';
+};
 window.botkassaLagreParagraf = async function(i) {
   const klubbId = _getAktivKlubbId();
   const p = paragrafer[i];
@@ -192,6 +223,47 @@ window.botkassaLagreParagraf = async function(i) {
   try {
     await lagreParagrafer(klubbId, paragrafer);
     visMelding('Paragraf oppdatert');
+  } catch (e) { visMelding('Kunne ikke lagre — sjekk firestore-reglene', 'feil'); }
+};
+window.botkassaFjernParagraf = async function(i) {
+  const klubbId = _getAktivKlubbId();
+  const fjernet = paragrafer[i];
+  const nyListe = paragrafer.filter((_, idx) => idx !== i);
+  try {
+    await lagreParagrafer(klubbId, nyListe);
+    paragrafer = nyListe;
+    visMelding(`«${fjernet.tittel}» fjernet`);
+    renderParagrafer();
+  } catch (e) { visMelding('Kunne ikke lagre — sjekk firestore-reglene', 'feil'); }
+};
+window.botkassaLeggTilParagraf = async function() {
+  const klubbId = _getAktivKlubbId();
+  const emoji   = document.getElementById('bk-ny-par-emoji').value.trim() || '📌';
+  const tittel  = document.getElementById('bk-ny-par-tittel').value.trim();
+  const type    = document.getElementById('bk-ny-par-type').value;
+  if (!tittel) return visMelding('Skriv en tittel', 'advarsel');
+
+  let felter;
+  if (type === 'skjonn') {
+    const min  = Number(document.getElementById('bk-ny-par-min').value)  || 0;
+    const maks = Number(document.getElementById('bk-ny-par-maks').value) || 100;
+    if (maks < min) return visMelding('Maks må være større enn min', 'advarsel');
+    felter = { skjonn: true, skjonnMin: min, skjonnMax: maks, belop: 0, ingenFast: true };
+  } else {
+    const belop = Number(document.getElementById('bk-ny-par-belop').value);
+    if (!belop || belop <= 0) return visMelding('Skriv et gyldig beløp', 'advarsel');
+    felter = { skjonn: false, belop };
+  }
+
+  const nyNum = paragrafer.reduce((maks, p) => Math.max(maks, p.num || 0), 0) + 1;
+  const nyParagraf = { id: `p_${Date.now()}`, num: nyNum, emoji, tittel, ...felter };
+
+  const nyListe = [...paragrafer, nyParagraf];
+  try {
+    await lagreParagrafer(klubbId, nyListe);
+    paragrafer = nyListe;
+    visMelding('Paragraf lagt til! 🥒');
+    renderParagrafer();
   } catch (e) { visMelding('Kunne ikke lagre — sjekk firestore-reglene', 'feil'); }
 };
 
@@ -243,6 +315,7 @@ function renderNullstill() {
     <label>Skriv <strong>NULLSTILL</strong> for å bekrefte</label>
     <input type="text" id="bk-nullstill-bekreft" placeholder="NULLSTILL" style="margin-bottom:14px" oninput="window.botkassaOppdaterNullstillKnapp()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <button class="knapp knapp-fare" id="bk-nullstill-btn" disabled onclick="window.botkassaUtforNullstilling()">🗑️ Nullstill sesongen</button>
+    <div id="bk-nullstill-resultat" style="margin-top:14px"></div>
   `;
 }
 window.botkassaOppdaterNullstillKnapp = function() {
@@ -252,17 +325,21 @@ window.botkassaOppdaterNullstillKnapp = function() {
   btn.disabled = felt.value.trim().toUpperCase() !== 'NULLSTILL';
 };
 window.botkassaUtforNullstilling = async function() {
-  const klubbId = _getAktivKlubbId();
-  const btn = document.getElementById('bk-nullstill-btn');
+  const klubbId  = _getAktivKlubbId();
+  const btn      = document.getElementById('bk-nullstill-btn');
+  const resultat = document.getElementById('bk-nullstill-resultat');
   btn.disabled = true;
   btn.textContent = 'Nullstiller …';
+  if (resultat) resultat.innerHTML = '';
   try {
     const antall = await nullstillSesong(klubbId);
     visMelding(`Nullstilt! ${antall} bøter slettet.`);
+    if (resultat) resultat.innerHTML = `<p class="bk-liten-tekst" style="color:var(--green2)">✅ Ferdig — ${antall} bøter slettet.</p>`;
     renderNullstill();
   } catch (e) {
-    console.warn('[Botkassa] nullstilling feilet:', e?.message);
-    visMelding('Kunne ikke nullstille — sjekk firestore-reglene', 'feil');
+    console.error('[Botkassa] nullstilling feilet:', e);
+    visMelding('Kunne ikke nullstille', 'feil');
+    if (resultat) resultat.innerHTML = `<p class="bk-liten-tekst" style="color:var(--red2)">❌ Feilet: ${escHtml(e?.message ?? String(e))}</p>`;
     btn.disabled = false;
     btn.textContent = '🗑️ Nullstill sesongen';
   }
