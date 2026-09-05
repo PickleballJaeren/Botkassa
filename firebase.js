@@ -7,9 +7,9 @@
 // ════════════════════════════════════════════════════════
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
-  getFirestore, collection, doc, addDoc, updateDoc, setDoc,
+  getFirestore, collection, doc, addDoc, updateDoc, setDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, serverTimestamp, increment,
+  onSnapshot, serverTimestamp, increment, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FB_CONFIG = {
@@ -31,7 +31,7 @@ try {
 
 export { db };
 export {
-  collection, doc, addDoc, updateDoc, setDoc,
+  collection, doc, addDoc, updateDoc, setDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, serverTimestamp, increment,
+  onSnapshot, serverTimestamp, increment, writeBatch,
 };

@@ -13,8 +13,8 @@
 // filosofi som resten av kodebasen: hver app-modul er selvstendig).
 // ════════════════════════════════════════════════════════
 import {
-  db, collection, doc, addDoc, updateDoc, setDoc, getDoc, getDocs,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp, increment,
+  db, collection, doc, addDoc, updateDoc, setDoc, deleteDoc, getDoc, getDocs,
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, increment, writeBatch,
 } from './firebase.js';
 
 const SAM = {
@@ -184,6 +184,25 @@ export async function settBetalt(botId, verdi) {
 
 export async function likeBot(botId) {
   await updateDoc(doc(db, SAM.BOTER, botId), { likes: increment(1) });
+}
+
+// ════════════════════════════════════════════════════════
+// NULLSTILLING — sletter all bot-historikk for klubben.
+// Feed og statistikk bygger begge på botkasseBoter, så en
+// tømming her nullstiller alt samtidig. Paragrafer og
+// eventuell ventende kø i botkasseInnmeldinger røres ikke.
+// Returnerer antall slettede bøter.
+// ════════════════════════════════════════════════════════
+export async function nullstillSesong(klubbId) {
+  const snap = await getDocs(query(collection(db, SAM.BOTER), where('klubbId', '==', klubbId)));
+  const docs = snap.docs;
+  const STORRELSE = 400; // under Firestores batch-grense på 500
+  for (let i = 0; i < docs.length; i += STORRELSE) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + STORRELSE).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return docs.length;
 }
 
 // ════════════════════════════════════════════════════════

@@ -10,7 +10,7 @@ import { escHtml, visMelding } from './ui.js';
 import {
   hentSpillere, hentParagrafer, lagreParagrafer,
   lyttPaBoter, lyttPaVentende,
-  godkjennInnmelding, avvisInnmelding, settBetalt,
+  godkjennInnmelding, avvisInnmelding, settBetalt, nullstillSesong,
 } from './botkassa-logikk.js';
 
 let _naviger = () => {};
@@ -74,6 +74,7 @@ function renderInnhold() {
   if (aktivTab === 'bøter')      return renderBoter();
   if (aktivTab === 'paragrafer') return renderParagrafer();
   if (aktivTab === 'del')        return renderDel();
+  if (aktivTab === 'nullstill')  return renderNullstill();
 }
 
 function renderVelgNavn() {
@@ -229,4 +230,40 @@ window.botkassaKopierLenke = function() {
 window.botkassaDelLenke = function() {
   const lenke = document.getElementById('bk-del-lenke')?.value || (location.origin + location.pathname);
   navigator.share({ title: 'Botkassa', text: 'Meld inn og se bøter i Botkassa 🥒', url: lenke }).catch(() => {});
+};
+
+// ── Nullstill sesongen (sletter historikk/feed/statistikk) ──
+function renderNullstill() {
+  const el = document.getElementById('botkassa-admin-innhold');
+  el.innerHTML = `
+    <div class="bk-verkty-notis" style="border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08);color:var(--red2)">
+      ⚠️ Dette sletter <strong>alle</strong> godkjente bøter permanent — historikk, feed og statistikk nullstilles for hele klubben. Paragrafene og eventuelle innmeldinger til behandling beholdes. Dette kan ikke angres.
+    </div>
+    <p class="bk-liten-tekst" style="margin-bottom:14px">Typisk brukt ved sesongstart, når fjorårets bøter skal starte helt på nytt.</p>
+    <label>Skriv <strong>NULLSTILL</strong> for å bekrefte</label>
+    <input type="text" id="bk-nullstill-bekreft" placeholder="NULLSTILL" style="margin-bottom:14px" oninput="window.botkassaOppdaterNullstillKnapp()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button class="knapp knapp-fare" id="bk-nullstill-btn" disabled onclick="window.botkassaUtforNullstilling()">🗑️ Nullstill sesongen</button>
+  `;
+}
+window.botkassaOppdaterNullstillKnapp = function() {
+  const felt = document.getElementById('bk-nullstill-bekreft');
+  const btn  = document.getElementById('bk-nullstill-btn');
+  if (!felt || !btn) return;
+  btn.disabled = felt.value.trim().toUpperCase() !== 'NULLSTILL';
+};
+window.botkassaUtforNullstilling = async function() {
+  const klubbId = _getAktivKlubbId();
+  const btn = document.getElementById('bk-nullstill-btn');
+  btn.disabled = true;
+  btn.textContent = 'Nullstiller …';
+  try {
+    const antall = await nullstillSesong(klubbId);
+    visMelding(`Nullstilt! ${antall} bøter slettet.`);
+    renderNullstill();
+  } catch (e) {
+    console.warn('[Botkassa] nullstilling feilet:', e?.message);
+    visMelding('Kunne ikke nullstille — sjekk firestore-reglene', 'feil');
+    btn.disabled = false;
+    btn.textContent = '🗑️ Nullstill sesongen';
+  }
 };

@@ -1,22 +1,23 @@
 # 🥒 Botkassa
 
-Botkasse-app for klubben — meld inn bøter, botansvarlig godkjenner,
-feed, statistikk og "Hensikt og regler". Bygget som en installerbar
-PWA med samme design som klubbens andre apper (Stafettligaen/Mesteren),
-og kobler til samme Firebase-prosjekt for å bruke den ekte spillerlisten.
+Botkasse-app for **Pickleball Jæren** — meld inn bøter, botansvarlig
+godkjenner, feed, statistikk og "Hensikt og regler". Bygget som en
+installerbar PWA med samme design som klubbens andre apper
+(Stafettligaen/Mesteren), og kobler til samme Firebase-prosjekt for å
+bruke den ekte spillerlisten.
 
 ## Filer i dette repoet
 
 | Fil | Hva den gjør |
 |---|---|
-| `index.html` | Siden selv — klubbvelger + alle Botkassa-skjermene |
-| `app.js` | Oppstart, klubbvalg, kobler modulene sammen |
+| `index.html` | Siden selv — alle Botkassa-skjermene |
+| `app.js` | Oppstart, kobler modulene sammen (klubben er hardkodet til Pickleball Jæren) |
 | `firebase.js` | Firebase-oppsett og delte samlingsreferanser |
 | `ui.js` | Toast-meldinger, navigasjon, XSS-escaping |
 | `admin.js` | PIN-beskyttelse for botkontroll |
 | `botkassa-logikk.js` | Alt som snakker med Firestore (paragrafer, innmeldinger, bøter, karma) |
 | `botkassa-ui.js` | Medlemsskjermene: hjem, meld inn bot, feed, statistikk, regler |
-| `botkassa-admin-ui.js` | Botkontroll: godkjenn/avvis/juster, betaling, rediger paragrafer |
+| `botkassa-admin-ui.js` | Botkontroll: godkjenn/avvis/juster, betaling, rediger paragrafer, del appen (QR/lenke), nullstill sesongen |
 | `botkassa.css` | Alle stiler (design-tokens + komponenter) |
 | `manifest.json` | Gjør appen installerbar som PWA |
 | `sw.js` | Service worker — cacher appen for offline-bruk |
@@ -61,19 +62,29 @@ bare rot-domenet til denne mappen.
 
 ### 3. Åpne appen
 
-Velg klubb på forsiden (samme PIN-koder som resten av klubbens apper),
-og appen kobler seg automatisk til samme spillerliste. Du kan også
-lenke direkte til en klubb med `?klubb=pickleball-jaeren` i URL-en.
+Appen går rett til Botkassa-hjem for Pickleball Jæren — ingen
+klubbvelger lenger, siden dette repoet er dedikert til én klubb.
 
-## PIN-koder (samme som resten av klubbens apper)
+### 4. Del appen med spillerne
+
+Under **Botkontroll → Del appen** finner admin en QR-kode og en
+delbar lenke til appen (klar til å skrive ut, sende i gruppechat,
+eller dele via mobilens del-meny). Fungerer best hvis spillerne
+legger siden til på hjemskjermen etterpå.
+
+### 5. Nullstille sesongen
+
+Under **Botkontroll → Nullstill** kan admin slette all bot-historikk
+permanent — feed, statistikk og botligaen bygger alle på samme data,
+så dette nullstiller alt samtidig. Paragrafer og eventuelle
+innmeldinger til behandling blir ikke rørt. Krever at man skriver
+"NULLSTILL" for å bekrefte, og kan ikke angres.
+
+## PIN-kode
 
 | Klubb | PIN |
 |---|---|
 | Pickleball Jæren | 9436 |
-| Fokus Pickleball | 4350 |
-| TSI Pickleball | 9299 |
-| Løten Tennisklubb | 2341 |
-| Demo | ingen PIN — alle er admin |
 
 ## Kjente begrensninger (bevisste, for en første versjon)
 
@@ -86,5 +97,7 @@ lenke direkte til en klubb med `?klubb=pickleball-jaeren` i URL-en.
   Vipps-avtalenummer og betalings-API, og er ikke laget her.
 - **Tre roller er slått sammen til én PIN.** Botansvarlig og admin deler
   samme PIN-nivå foreløpig (medlem er fortsatt uten PIN).
+- **QR-koden genereres via en ekstern tjeneste** (api.qrserver.com) —
+  lenken sendes dit for å tegnes som bilde, men lagres ikke der.
 - **"Årets unnskyldning" og "Årets fair-play-spiller"** kåres manuelt av
   styret ved sesongslutt — de er ikke automatisk utregnet.
