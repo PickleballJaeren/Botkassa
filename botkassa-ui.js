@@ -94,7 +94,7 @@ function renderHjemStats() {
 function renderFeedPreview() {
   const el = document.getElementById('botkassa-hjem-feed');
   if (!boter.length) { el.innerHTML = `<div class="tom-tilstand-liten">Feeden er tom foreløpig.</div>`; return; }
-  el.innerHTML = boter.slice(0,3).map(feedKortHtml).join('');
+  el.innerHTML = boter.slice(0,5).map(feedKortHtml).join('');
 }
 
 function renderFeedFull() {
