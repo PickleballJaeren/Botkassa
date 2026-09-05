@@ -28,7 +28,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 
 /* ── Header ── */
 .app-header{background:linear-gradient(180deg,var(--navy2) 0%,transparent 100%);padding:calc(16px + var(--safe-top)) 20px 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.app-logo{width:42px;height:42px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px;color:#fff;box-shadow:0 4px 16px rgba(37,99,235,0.4)}
+.app-logo{width:42px;height:42px;background:var(--yellow);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Bebas Neue',cursive;font-weight:700;font-size:19px;letter-spacing:1px;color:#000;box-shadow:0 4px 16px rgba(234,179,8,0.4)}
 .app-name{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:2px;line-height:1}
 .app-sub{font-size:16px;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
 .tilbake-btn{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:28px;line-height:1;padding:0;flex-shrink:0}
