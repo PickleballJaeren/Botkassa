@@ -23,6 +23,7 @@ const SAM = {
   PARAGRAFER:   'botkasseParagrafer',
   INNMELDINGER: 'botkasseInnmeldinger',
   BOTER:        'botkasseBoter',
+  FAIRPLAY:     'botkasseFairPlay',
 };
 
 // ════════════════════════════════════════════════════════
@@ -40,6 +41,17 @@ export const DEFAULT_PARAGRAFER = [
   { id:'p8',  num:8,  emoji:'🏓', tittel:'Skylde på makkeren etter tap',          belop:20, skjonn:false },
   { id:'p9',  num:9,  emoji:'⚖️', tittel:'For stor seiersmargin i sosialspill',   belop:0,  skjonn:true,  skjonnMin:0,  skjonnMax:100, ingenFast:true },
   { id:'p10', num:10, emoji:'🚨', tittel:'Botpoliti (overivrig tysting)',         belop:20, skjonn:false },
+];
+
+// ════════════════════════════════════════════════════════
+// FAIR PLAY-KATEGORIER — faste, ikke redigerbare (i motsetning
+// til paragrafene). Fair Play-poeng har ingen kroneverdi og
+// ingen godkjenningssteg, så det er ingenting å konfigurere.
+// ════════════════════════════════════════════════════════
+export const FAIRPLAY_KATEGORIER = [
+  { id:'fp1', emoji:'🤝', tittel:'Fair play' },
+  { id:'fp2', emoji:'🔥', tittel:'Utrolig prestasjon' },
+  { id:'fp3', emoji:'😂', tittel:'Gjorde noens dag' },
 ];
 
 // ════════════════════════════════════════════════════════
@@ -103,6 +115,14 @@ export function lyttPaVentende(klubbId, callback) {
     ),
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => console.warn('[Botkassa] lyttPaVentende:', err?.message),
+  );
+}
+
+export function lyttPaFairPlay(klubbId, callback) {
+  return onSnapshot(
+    query(collection(db, SAM.FAIRPLAY), where('klubbId','==',klubbId), orderBy('opprettet','desc'), limit(200)),
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => console.warn('[Botkassa] lyttPaFairPlay:', err?.message),
   );
 }
 
@@ -217,6 +237,42 @@ export async function godkjennInnmelding(innmelding, baseBelop, behandletAvNavn)
 }
 
 // ════════════════════════════════════════════════════════
+// FAIR PLAY-POENG — den positive motvekten til bøtene. Ingen
+// godkjenning, ingen kroneverdi, ingen kobling til karma (bevisst
+// valg — se diskusjon i README/samtalen med klubben: kobler man
+// Fair Play-poeng til å redusere bøter, kan noen be en kompis
+// sende et poeng rett før de vet de blir meldt inn). Postes
+// direkte i feeden, én post per valgt spiller (samme mønster som
+// lagstraff for bøter).
+// ════════════════════════════════════════════════════════
+export async function opprettFairPlayPoeng({ klubbId, meldtAvId, meldtAvNavn, motSpillere, kategoriId, kategoriTittel, kommentar }) {
+  const batch = writeBatch(db);
+  motSpillere.forEach(mot => {
+    const ref = doc(collection(db, SAM.FAIRPLAY));
+    batch.set(ref, {
+      klubbId,
+      spillerId: mot.id, spillerNavn: mot.navn,
+      kategoriId, kategoriTittel,
+      kommentar: kommentar || '',
+      meldtAvId, meldtAvNavn,
+      likes: 0,
+      opprettet: serverTimestamp(),
+    });
+  });
+  await batch.commit();
+}
+
+/**
+ * Like/unlike et Fair Play-poeng — samme mønster som likeBot.
+ */
+export async function likeFairPlay(id, enhetsId, harAlleredeLikt) {
+  await updateDoc(doc(db, SAM.FAIRPLAY, id), {
+    likes:   increment(harAlleredeLikt ? -1 : 1),
+    likedAv: harAlleredeLikt ? arrayRemove(enhetsId) : arrayUnion(enhetsId),
+  });
+}
+
+// ════════════════════════════════════════════════════════
 // BØTER — betaling og likes
 // ════════════════════════════════════════════════════════
 export async function settBetalt(botId, verdi) {
@@ -239,14 +295,14 @@ export async function likeBot(botId, enhetsId, harAlleredeLikt) {
 }
 
 // ════════════════════════════════════════════════════════
-// NULLSTILLING — sletter all bot-historikk for klubben.
-// Feed og statistikk bygger begge på botkasseBoter, så en
-// tømming her nullstiller alt samtidig. Paragrafer og
-// eventuell ventende kø i botkasseInnmeldinger røres ikke.
-// Returnerer antall slettede bøter.
+// NULLSTILLING — sletter all bot- og Fair Play-historikk for
+// klubben. Feed og statistikk bygger på begge samlingene, så en
+// tømming her nullstiller alt samtidig. Paragrafer og eventuell
+// ventende kø i botkasseInnmeldinger røres ikke.
+// Returnerer { boter, fairPlay } — antall slettet av hver.
 // ════════════════════════════════════════════════════════
-export async function nullstillSesong(klubbId) {
-  const snap = await getDocs(query(collection(db, SAM.BOTER), where('klubbId', '==', klubbId)));
+async function slettAlleIKollection(samlingsnavn, klubbId) {
+  const snap = await getDocs(query(collection(db, samlingsnavn), where('klubbId', '==', klubbId)));
   const docs = snap.docs;
   const STORRELSE = 400; // under Firestores batch-grense på 500
   for (let i = 0; i < docs.length; i += STORRELSE) {
@@ -255,6 +311,12 @@ export async function nullstillSesong(klubbId) {
     await batch.commit();
   }
   return docs.length;
+}
+
+export async function nullstillSesong(klubbId) {
+  const boter    = await slettAlleIKollection(SAM.BOTER, klubbId);
+  const fairPlay = await slettAlleIKollection(SAM.FAIRPLAY, klubbId);
+  return { boter, fairPlay };
 }
 
 // ════════════════════════════════════════════════════════

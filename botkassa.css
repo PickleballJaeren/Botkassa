@@ -53,6 +53,8 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 .knapp-omriss{background:transparent;border:1px solid var(--border2);color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:16px;padding:11px;letter-spacing:.4px}
 .knapp-fare{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(220,38,38,0.3)}
 .knapp-ok{background:var(--green);color:#fff}
+.knapp-fairplay{background:var(--green);color:#fff;box-shadow:0 4px 20px rgba(22,163,74,0.35)}
+.knapp-fairplay-omriss{background:rgba(22,163,74,.12);border:1px solid var(--green);color:var(--green2);font-family:'DM Sans',sans-serif;font-size:16px;padding:11px;letter-spacing:.4px}
 .knapp-liten{padding:9px 16px;font-size:16px;width:auto;border-radius:10px;letter-spacing:1px}
 .knapp:disabled{opacity:.4;cursor:not-allowed}
 
@@ -167,3 +169,15 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-rad-mellom{display:flex;justify-content:space-between;align-items:center;padding:8px 0}
 .bk-liten-tekst{font-size:13px;color:var(--muted)}
 .agurk-emoji{height:1em;width:auto;vertical-align:-0.15em;border-radius:2px;display:inline-block}
+
+/* ── FAIR PLAY-POENG — grønn motvekt til bøtene ── */
+.bk-feed-card-fairplay{border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.06)}
+.bk-fairplay-badge{background:rgba(22,163,74,.18);color:var(--green2);font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.3px;flex-shrink:0}
+.bk-feed-paragraf-fairplay{color:var(--green2)}
+.bk-paragraf-item-fairplay.valgt{border-color:var(--green);background:rgba(22,163,74,.12)}
+.bk-stat-tile-fairplay{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.35)}
+.bk-stat-value-fairplay{color:var(--green2);font-family:'DM Mono',monospace;font-size:19px;font-weight:700}
+.bk-title-card-fairplay{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.4)}
+.bk-title-navn-fairplay{color:var(--green2)}
+.bk-kort-fairplay{border-color:rgba(22,163,74,.25)}
+.bk-liga-antall-fairplay{color:var(--green2)}

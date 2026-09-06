@@ -6,6 +6,11 @@ installerbar PWA med samme design som klubbens andre apper
 (Stafettligaen/Mesteren), og kobler til samme Firebase-prosjekt for å
 bruke den ekte spillerlisten.
 
+Appen har også en positiv motvekt til bøtene: **Fair Play-poeng**.
+Alle kan gi hverandre et poeng for fair play, en utrolig prestasjon
+eller å ha gjort noens dag — postes rett i feeden uten godkjenning,
+og rangeres i **Fair Play-ordenen** ved siden av Botligaen.
+
 ## Filer i dette repoet
 
 | Fil | Hva den gjør |
@@ -15,8 +20,8 @@ bruke den ekte spillerlisten.
 | `firebase.js` | Firebase-oppsett og delte samlingsreferanser |
 | `ui.js` | Toast-meldinger, navigasjon, XSS-escaping |
 | `admin.js` | PIN-beskyttelse for botkontroll |
-| `botkassa-logikk.js` | Alt som snakker med Firestore (paragrafer, innmeldinger, bøter, karma) |
-| `botkassa-ui.js` | Medlemsskjermene: hjem, meld inn bot, feed, statistikk, regler |
+| `botkassa-logikk.js` | Alt som snakker med Firestore (paragrafer, innmeldinger, bøter, karma, Fair Play-poeng) |
+| `botkassa-ui.js` | Medlemsskjermene: hjem, meld inn bot, meld Fair Play-poeng, feed, statistikk, regler, venter på deg |
 | `botkassa-admin-ui.js` | Botkontroll: godkjenn/avvis/juster, betaling, rediger paragrafer, del appen (QR/lenke), nullstill sesongen |
 | `botkassa.css` | Alle stiler (design-tokens + komponenter) |
 | `manifest.json` | Gjør appen installerbar som PWA |
@@ -29,7 +34,8 @@ bruke den ekte spillerlisten.
 
 Botkassa skriver til tre nye samlinger i det delte Firebase-prosjektet:
 `botkasseParagrafer`, `botkasseInnmeldinger`, `botkasseBoter`. Disse må
-legges til i firestore.rules før noe kan lagres.
+legges til i firestore.rules før noe kan lagres. Fair Play-poeng
+bruker en fjerde samling, `botkasseFairPlay`.
 
 Gå til: https://console.firebase.google.com/project/pickle-rank-5fbe5/firestore/rules
 
@@ -48,6 +54,11 @@ match /botkasseInnmeldinger/{id} {
 match /botkasseBoter/{id} {
   allow read: if true;
   allow create, update: if request.resource.data.klubbId is string && request.resource.data.belop is number;
+  allow delete: if true;
+}
+match /botkasseFairPlay/{id} {
+  allow read: if true;
+  allow create, update: if request.resource.data.klubbId is string && request.resource.data.spillerId is string;
   allow delete: if true;
 }
 ```
@@ -75,10 +86,11 @@ legger siden til på hjemskjermen etterpå.
 ### 5. Nullstille sesongen
 
 Under **Botkontroll → Nullstill** kan admin slette all bot-historikk
-permanent — feed, statistikk og botligaen bygger alle på samme data,
-så dette nullstiller alt samtidig. Paragrafer og eventuelle
-innmeldinger til behandling blir ikke rørt. Krever at man skriver
-"NULLSTILL" for å bekrefte, og kan ikke angres.
+og alle Fair Play-poeng permanent — feed, statistikk, botligaen og
+Fair Play-ordenen bygger alle på samme data, så dette nullstiller alt
+samtidig. Paragrafer og eventuelle innmeldinger til behandling blir
+ikke rørt. Krever at man skriver "NULLSTILL" for å bekrefte, og kan
+ikke angres.
 
 ## PIN-kode
 
@@ -99,5 +111,16 @@ innmeldinger til behandling blir ikke rørt. Krever at man skriver
   samme PIN-nivå foreløpig (medlem er fortsatt uten PIN).
 - **QR-koden genereres via en ekstern tjeneste** (api.qrserver.com) —
   lenken sendes dit for å tegnes som bilde, men lagres ikke der.
-- **"Årets unnskyldning" og "Årets fair-play-spiller"** kåres manuelt av
-  styret ved sesongslutt — de er ikke automatisk utregnet.
+- **"Årets unnskyldning"** kåres manuelt av styret ved sesongslutt —
+  den er ikke automatisk utregnet ("Fair Play-ordenens leder" derimot
+  er automatisk, basert på flest Fair Play-poeng mottatt).
+- **Fair Play-poeng har ingen godkjenning eller moderering.** Alle kan
+  sende et poeng til hvem som helst, uten at botansvarlig kan avvise
+  det (kun slette hele sesongen via Nullstill). Bevisst valg for å
+  holde terskelen lav — men det betyr også at det ikke er noen
+  innebygd sperre mot useriøs bruk, utover samme tillitsnivå som
+  resten av appen.
+- **Fair Play-poeng påvirker aldri bøter eller karma.** De to systemene
+  er bevisst holdt adskilt — et poeng kan ikke redusere eller
+  nøytralisere en bot, for å unngå at noen "kjøper seg fri" ved å be
+  en venn sende et poeng rett før de blir meldt inn.

@@ -79,7 +79,7 @@ function renderInnhold() {
 
 function renderVelgNavn() {
   document.getElementById('botkassa-admin-innhold').innerHTML = `
-    <label>Hvem er du (brukes til "Årets dommer"-statistikk)?</label>
+    <label>Hvem er du (vises som "behandlet av" på godkjente saker)?</label>
     <select id="botkassa-admin-navn-select" style="margin-bottom:14px">
       <option value="" disabled selected>Velg deg selv …</option>
       ${spillere.map(s => `<option value="${escHtml(s.navn)}">${escHtml(s.navn)}</option>`).join('')}
@@ -312,7 +312,7 @@ function renderNullstill() {
   const el = document.getElementById('botkassa-admin-innhold');
   el.innerHTML = `
     <div class="bk-verkty-notis" style="border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08);color:var(--red2)">
-      ⚠️ Dette sletter <strong>alle</strong> godkjente bøter permanent — historikk, feed og statistikk nullstilles for hele klubben. Paragrafene og eventuelle innmeldinger til behandling beholdes. Dette kan ikke angres.
+      ⚠️ Dette sletter <strong>alle</strong> godkjente bøter og Fair Play-poeng permanent — historikk, feed og statistikk nullstilles for hele klubben. Paragrafene og eventuelle innmeldinger til behandling beholdes. Dette kan ikke angres.
     </div>
     <p class="bk-liten-tekst" style="margin-bottom:14px">Typisk brukt ved sesongstart, når fjorårets bøter skal starte helt på nytt.</p>
     <label>Skriv <strong>NULLSTILL</strong> for å bekrefte</label>
@@ -335,9 +335,10 @@ window.botkassaUtforNullstilling = async function() {
   btn.textContent = 'Nullstiller …';
   if (resultat) resultat.innerHTML = '';
   try {
-    const antall = await nullstillSesong(klubbId);
-    visMelding(`Nullstilt! ${antall} bøter slettet.`);
-    if (resultat) resultat.innerHTML = `<p class="bk-liten-tekst" style="color:var(--green2)">✅ Ferdig — ${antall} bøter slettet.</p>`;
+    const { boter, fairPlay } = await nullstillSesong(klubbId);
+    const tekst = `${boter} bøter og ${fairPlay} Fair Play-poeng slettet.`;
+    visMelding(`Nullstilt! ${tekst}`);
+    if (resultat) resultat.innerHTML = `<p class="bk-liten-tekst" style="color:var(--green2)">✅ Ferdig — ${tekst}</p>`;
     renderNullstill();
   } catch (e) {
     console.error('[Botkassa] nullstilling feilet:', e);

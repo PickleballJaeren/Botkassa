@@ -49,6 +49,9 @@
     <div style="margin-top:22px">
       <button class="knapp knapp-primaer" style="font-size:26px;padding:20px" onclick="window.visBotkassaMeld?.()">+ MELD INN BOT</button>
     </div>
+    <div style="margin-top:10px">
+      <button class="knapp knapp-fairplay-omriss" style="width:100%" onclick="window.visBotkassaFairplay?.()">+ Send Fair Play-poeng</button>
+    </div>
 
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="knapp knapp-omriss" onclick="window.visBotkassaFeed?.()">🚨 Feed</button>
@@ -89,6 +92,33 @@
 
     <button class="knapp knapp-primaer" id="botkassa-meld-send-btn" onclick="window.botkassaSendInnmelding()">Send inn →</button>
     <p class="bk-liten-tekst" style="text-align:center;margin-top:12px">Ingen bot registreres automatisk — botansvarlig godkjenner eller avviser først.</p>
+  </div>
+</div>
+
+<!-- ── BOTKASSA — MELD FAIR PLAY-POENG ── -->
+<div id="skjerm-botkassa-fairplay" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Fair Play-poeng</div>
+      <div class="app-sub">Postes rett i feeden — ingen godkjenning</div>
+    </div>
+  </div>
+  <div class="scroll-omrade">
+    <label>Fra hvem (deg selv)</label>
+    <select id="botkassa-fp-mittnavn" style="margin-bottom:18px" onchange="window.botkassaLagreMittNavn?.(this.value)"></select>
+
+    <label>Hvem gjelder det?</label>
+    <div class="bk-spiller-liste" id="botkassa-fp-spillerliste" style="margin-bottom:18px"></div>
+
+    <label>Kategori</label>
+    <div id="botkassa-fp-kategoriliste" style="margin-bottom:18px"></div>
+
+    <label>Eventuell kommentar</label>
+    <textarea id="botkassa-fp-kommentar" placeholder="F.eks. «Ga makkeren sin en high five etter et tapt sett.»" style="margin-bottom:22px"></textarea>
+
+    <button class="knapp knapp-fairplay" id="botkassa-fp-send-btn" onclick="window.botkassaSendFairplay()">Send Fair Play-poeng →</button>
+    <p class="bk-liten-tekst" style="text-align:center;margin-top:12px">Postes direkte i feeden — ingen godkjenning nødvendig.</p>
   </div>
 </div>
 

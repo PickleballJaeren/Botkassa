@@ -10,8 +10,10 @@
 // ════════════════════════════════════════════════════════
 import { escHtml, visMelding } from './ui.js';
 import {
-  hentSpillere, hentParagrafer, lyttPaBoter, lyttPaVentende,
-  opprettInnmelding, svarPaInnmelding, likeBot, topListe, sumListe,
+  hentSpillere, hentParagrafer, lyttPaBoter, lyttPaVentende, lyttPaFairPlay,
+  opprettInnmelding, svarPaInnmelding, likeBot,
+  opprettFairPlayPoeng, likeFairPlay, FAIRPLAY_KATEGORIER,
+  topListe, sumListe,
 } from './botkassa-logikk.js';
 
 let _naviger        = () => {};
@@ -22,10 +24,14 @@ let spillere   = [];
 let paragrafer = [];
 let boter      = [];
 let ventende   = [];
-let valgteSpillereIds = new Set();
-let valgtParagrafId   = null;
+let fairPlay   = [];
+let valgteSpillereIds   = new Set();
+let valgtParagrafId     = null;
+let valgteSpillereIdsFP = new Set();
+let valgtKategoriId     = null;
 let avslyttBoter = null;
 let avslyttVentende = null;
+let avslyttFairPlay = null;
 let lastetForKlubb = null;
 
 export function botkassaUIInit({ naviger, getAktivKlubbId, getKlubbNavn }) {
@@ -53,6 +59,15 @@ export async function visBotkassaOversikt() {
     if (avslyttBoter) avslyttBoter();
     avslyttBoter = lyttPaBoter(klubbId, nyeBoter => {
       boter = nyeBoter;
+      renderHjemStats();
+      renderFeedPreview();
+      if (skjermErAktiv('botkassa-feed')) renderFeedFull();
+      if (skjermErAktiv('botkassa-stats')) renderStats();
+    });
+
+    if (avslyttFairPlay) avslyttFairPlay();
+    avslyttFairPlay = lyttPaFairPlay(klubbId, nyeFairPlay => {
+      fairPlay = nyeFairPlay;
       renderHjemStats();
       renderFeedPreview();
       if (skjermErAktiv('botkassa-feed')) renderFeedFull();
@@ -97,36 +112,64 @@ function enhetsId() {
 // ════════════════════════════════════════════════════════
 function renderHjemStats() {
   const el = document.getElementById('botkassa-hjem-stats');
-  if (!boter.length) {
-    el.innerHTML = `<div class="tom-tilstand" style="grid-column:1/-1">Ingen bøter registrert ennå denne sesongen. <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`;
+  if (!boter.length && !fairPlay.length) {
+    el.innerHTML = `<div class="tom-tilstand" style="grid-column:1/-1">Ingen bøter eller Fair Play-poeng registrert ennå denne sesongen. <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`;
     return;
   }
-  const sum         = boter.reduce((s,b) => s + (b.belop||0), 0);
-  const botkonge    = topListe(boter, 'spillerNavn')[0];
-  const botpoliti   = topListe(boter, 'meldtAvNavn')[0];
-  const topParagraf = topListe(boter, 'paragrafTittel')[0];
-  el.innerHTML = `
-    <div class="bk-stat-tile"><div class="bk-stat-value">${sum.toLocaleString('nb-NO')} kr</div><div class="bk-stat-label">💰 Samlet inn</div></div>
-    <div class="bk-stat-tile"><div class="bk-stat-value">${boter.length}</div><div class="bk-stat-label">🚨 Bøter gitt</div></div>
-    <div class="bk-stat-tile"><div class="bk-stat-value">${escHtml(botkonge?.key ?? '—')}</div><div class="bk-stat-label">🏆 Botkonge/-dronning</div></div>
-    <div class="bk-stat-tile"><div class="bk-stat-value">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-stat-label">👮 Botpoliti</div></div>
-    <div class="bk-stat-tile full"><span class="bk-stat-label" style="margin:0">😂 Mest brukte paragraf</span><span class="bk-stat-value" style="font-size:14px">${escHtml(topParagraf?.key ?? '—')}</span></div>
+  let html = '';
+  if (boter.length) {
+    const sum         = boter.reduce((s,b) => s + (b.belop||0), 0);
+    const botkonge    = topListe(boter, 'spillerNavn')[0];
+    const botpoliti   = topListe(boter, 'meldtAvNavn')[0];
+    const topParagraf = topListe(boter, 'paragrafTittel')[0];
+    html += `
+      <div class="bk-stat-tile"><div class="bk-stat-value">${sum.toLocaleString('nb-NO')} kr</div><div class="bk-stat-label">💰 Samlet inn</div></div>
+      <div class="bk-stat-tile"><div class="bk-stat-value">${boter.length}</div><div class="bk-stat-label">🚨 Bøter gitt</div></div>
+      <div class="bk-stat-tile"><div class="bk-stat-value">${escHtml(botkonge?.key ?? '—')}</div><div class="bk-stat-label">🏆 Botkonge/-dronning</div></div>
+      <div class="bk-stat-tile"><div class="bk-stat-value">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-stat-label">👮 Botpoliti</div></div>
+      <div class="bk-stat-tile full"><span class="bk-stat-label" style="margin:0">😂 Mest brukte paragraf</span><span class="bk-stat-value" style="font-size:14px">${escHtml(topParagraf?.key ?? '—')}</span></div>
+    `;
+  }
+  html += `
+    <div class="bk-stat-tile full bk-stat-tile-fairplay"><span class="bk-stat-label" style="margin:0">🤝 Fair Play-poeng</span><span class="bk-stat-value bk-stat-value-fairplay">${fairPlay.length}</span></div>
   `;
+  el.innerHTML = html;
+}
+
+/**
+ * Slår sammen bøter og Fair Play-poeng til én kronologisk feed, nyest
+ * først — den positive motvekten skal leve side om side med bøtene, ikke
+ * gjemmes bort i en egen fane. `_type` brukes av feedKortHtml/botkassaLike
+ * til å vite hvilket kort/hvilken Firestore-samling det gjelder.
+ */
+function feedSamlet() {
+  const alle = [
+    ...boter.map(b => ({ ...b, _type: 'bot' })),
+    ...fairPlay.map(f => ({ ...f, _type: 'fairplay' })),
+  ];
+  alle.sort((a, b) => (b.opprettet?.toMillis?.() ?? 0) - (a.opprettet?.toMillis?.() ?? 0));
+  return alle;
 }
 
 function renderFeedPreview() {
   const el = document.getElementById('botkassa-hjem-feed');
-  if (!boter.length) { el.innerHTML = `<div class="tom-tilstand-liten">Feeden er tom foreløpig.</div>`; return; }
-  el.innerHTML = boter.slice(0,5).map(feedKortHtml).join('');
+  const alle = feedSamlet();
+  if (!alle.length) { el.innerHTML = `<div class="tom-tilstand-liten">Feeden er tom foreløpig.</div>`; return; }
+  el.innerHTML = alle.slice(0,5).map(feedKortHtml).join('');
 }
 
 function renderFeedFull() {
   const el = document.getElementById('botkassa-feed-innhold');
-  if (!boter.length) { el.innerHTML = `<div class="tom-tilstand">Ingen godkjente bøter ennå. Vær den første til å melde inn en! <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`; return; }
-  el.innerHTML = boter.map(feedKortHtml).join('');
+  const alle = feedSamlet();
+  if (!alle.length) { el.innerHTML = `<div class="tom-tilstand">Ingen godkjente bøter eller Fair Play-poeng ennå. Vær den første til å melde inn noe! <img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div>`; return; }
+  el.innerHTML = alle.map(feedKortHtml).join('');
 }
 
-function feedKortHtml(b) {
+function feedKortHtml(item) {
+  return item._type === 'fairplay' ? fairPlayKortHtml(item) : botKortHtml(item);
+}
+
+function botKortHtml(b) {
   const karma     = b.karmaDoblet ? `<span class="bk-karma-badge">⚖️ KARMA — doblet</span>` : '';
   const harLikt   = Array.isArray(b.likedAv) && b.likedAv.includes(enhetsId());
   return `<div class="bk-feed-card">
@@ -139,15 +182,38 @@ function feedKortHtml(b) {
     ${b.forklaring ? `<div class="bk-feed-forklaring">😅 ${escHtml(b.spillerNavn)} forklarer: «${escHtml(b.forklaring)}»</div>` : ''}
     <div class="bk-feed-footer">
       <span class="bk-feed-meldtav">Meldt inn av ${escHtml(b.meldtAvNavn || '?')} · ${b.betalt ? '🟢 Betalt' : '🟠 Ikke betalt'}</span>
-      <button class="bk-like-btn${harLikt ? ' likt' : ''}" onclick="window.botkassaLike('${b.id}')">😂 ${b.likes || 0}</button>
+      <button class="bk-like-btn${harLikt ? ' likt' : ''}" onclick="window.botkassaLike('${b.id}','bot')">😂 ${b.likes || 0}</button>
     </div>
   </div>`;
 }
-window.botkassaLike = async function(id) {
-  const b = boter.find(x => x.id === id);
-  const harAlleredeLikt = Array.isArray(b?.likedAv) && b.likedAv.includes(enhetsId());
-  try { await likeBot(id, enhetsId(), harAlleredeLikt); }
-  catch (e) { visMelding('Kunne ikke like — sjekk firestore-reglene', 'feil'); }
+
+function fairPlayKortHtml(f) {
+  const harLikt = Array.isArray(f.likedAv) && f.likedAv.includes(enhetsId());
+  return `<div class="bk-feed-card bk-feed-card-fairplay">
+    <div class="bk-feed-head">
+      <div class="bk-feed-navn">${escHtml(f.spillerNavn)}</div>
+      <span class="bk-fairplay-badge">🤝 FAIR PLAY</span>
+    </div>
+    <div class="bk-feed-paragraf bk-feed-paragraf-fairplay">${escHtml(f.kategoriTittel)}</div>
+    ${f.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(f.kommentar)}»</div>` : ''}
+    <div class="bk-feed-footer">
+      <span class="bk-feed-meldtav">Meldt inn av ${escHtml(f.meldtAvNavn || '?')}</span>
+      <button class="bk-like-btn${harLikt ? ' likt' : ''}" onclick="window.botkassaLike('${f.id}','fairplay')">😂 ${f.likes || 0}</button>
+    </div>
+  </div>`;
+}
+
+window.botkassaLike = async function(id, type) {
+  const kilde = type === 'fairplay' ? fairPlay : boter;
+  const item  = kilde.find(x => x.id === id);
+  const harAlleredeLikt = Array.isArray(item?.likedAv) && item.likedAv.includes(enhetsId());
+  try {
+    if (type === 'fairplay') await likeFairPlay(id, enhetsId(), harAlleredeLikt);
+    else await likeBot(id, enhetsId(), harAlleredeLikt);
+  } catch (e) {
+    console.warn('[Botkassa] like feilet:', e?.message);
+    visMelding('Kunne ikke like — sjekk firestore-reglene', 'feil');
+  }
 };
 
 export function visBotkassaFeed()  { _naviger('botkassa-feed');  renderFeedFull(); }
@@ -156,7 +222,6 @@ export function visBotkassaRegler(){ _naviger('botkassa-regler'); renderRegler()
 window.visBotkassaFeed   = visBotkassaFeed;
 window.visBotkassaStats  = visBotkassaStats;
 window.visBotkassaRegler = visBotkassaRegler;
-
 // ════════════════════════════════════════════════════════
 // STATISTIKK
 // ════════════════════════════════════════════════════════
@@ -184,13 +249,15 @@ function finnArsNestenHelgen() {
 }
 function renderStats() {
   const el = document.getElementById('botkassa-stats-innhold');
-  if (!boter.length) { el.innerHTML = `<div class="tom-tilstand">Ingen data å vise ennå.</div>`; return; }
+  if (!boter.length && !fairPlay.length) { el.innerHTML = `<div class="tom-tilstand">Ingen data å vise ennå.</div>`; return; }
 
-  const botligaen    = topListe(boter, 'spillerNavn').slice(0,8);
-  const bidragsyter  = sumListe(boter, 'spillerNavn', 'belop')[0];
-  const botpoliti    = topListe(boter, 'meldtAvNavn')[0];
-  const nestenHelgen = finnArsNestenHelgen();
-  const sylteagurk   = botligaen[0];
+  const botligaen     = topListe(boter, 'spillerNavn').slice(0,8);
+  const fairPlayLiga  = topListe(fairPlay, 'spillerNavn').slice(0,8);
+  const bidragsyter   = sumListe(boter, 'spillerNavn', 'belop')[0];
+  const botpoliti     = topListe(boter, 'meldtAvNavn')[0];
+  const nestenHelgen  = finnArsNestenHelgen();
+  const sylteagurk    = botligaen[0];
+  const fairPlayLeder = fairPlayLiga[0];
 
   el.innerHTML = `
     <div class="seksjon-etikett">🏆 Årets titler</div>
@@ -199,12 +266,18 @@ function renderStats() {
       <div class="bk-title-card"><div class="bk-title-emoji">👮</div><div class="bk-title-navn">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-title-label">Årets botpoliti<br>(flest innmeldinger)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">🙏</div><div class="bk-title-navn">${escHtml(nestenHelgen?.navn ?? '—')}</div><div class="bk-title-label">Årets nesten-helgen<br>(færrest bøter, blant de skyldige)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">💸</div><div class="bk-title-navn">${escHtml(bidragsyter?.key ?? '—')}</div><div class="bk-title-label">Årets bidragsyter<br>(høyest sum)</div></div>
+      <div class="bk-title-card bk-title-card-fairplay" style="grid-column:1/-1"><div class="bk-title-emoji">🤝</div><div class="bk-title-navn bk-title-navn-fairplay">${escHtml(fairPlayLeder?.key ?? '—')}</div><div class="bk-title-label">Fair Play-ordenens leder<br>(flest Fair Play-poeng)</div></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:20px">😂 Årets unnskyldning og 🏓 Årets fair-play-spiller kåres manuelt av styret ved sesongslutt.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px">😂 Årets unnskyldning kåres manuelt av styret ved sesongslutt.</p>
 
     <div class="seksjon-etikett">Botligaen</div>
-    <div class="kort"><div class="kort-innhold">
-      ${botligaen.map((r,i) => `<div class="bk-liga-rad"><div class="bk-liga-plass">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div class="bk-liga-navn">${escHtml(r.key)}</div><div class="bk-liga-antall">${r.antall}</div></div>`).join('')}
+    <div class="kort" style="margin-bottom:20px"><div class="kort-innhold">
+      ${botligaen.length ? botligaen.map((r,i) => `<div class="bk-liga-rad"><div class="bk-liga-plass">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div class="bk-liga-navn">${escHtml(r.key)}</div><div class="bk-liga-antall">${r.antall}</div></div>`).join('') : `<div class="tom-tilstand-liten">Ingen bøter ennå.</div>`}
+    </div></div>
+
+    <div class="seksjon-etikett" style="color:var(--green2)">🤝 Fair Play-ordenen</div>
+    <div class="kort bk-kort-fairplay"><div class="kort-innhold">
+      ${fairPlayLiga.length ? fairPlayLiga.map((r,i) => `<div class="bk-liga-rad"><div class="bk-liga-plass">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div class="bk-liga-navn">${escHtml(r.key)}</div><div class="bk-liga-antall bk-liga-antall-fairplay">${r.antall}</div></div>`).join('') : `<div class="tom-tilstand-liten">Ingen Fair Play-poeng ennå.</div>`}
     </div></div>
   `;
 }
@@ -341,6 +414,84 @@ window.botkassaSendInnmelding = async function() {
   } catch (e) {
     console.warn('[Botkassa] sendInnmelding feilet:', e?.message);
     visMelding('Kunne ikke sende inn — sjekk firestore-reglene', 'feil');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ════════════════════════════════════════════════════════
+// MELD FAIR PLAY-POENG — den positive tvillingen til Meld inn
+// bot. Ingen godkjenning fra botansvarlig (se opprettFairPlayPoeng)
+// og ingen kobling til karma/bøter (bevisst valg, unngår at
+// systemet kan "kjøpes fri" via en kompis).
+// ════════════════════════════════════════════════════════
+export function visBotkassaFairplay() {
+  valgteSpillereIdsFP = new Set();
+  valgtKategoriId     = null;
+  _naviger('botkassa-fairplay');
+
+  const navnSelect = document.getElementById('botkassa-fp-mittnavn');
+  navnSelect.innerHTML = `<option value="" disabled selected>Velg deg selv …</option>` +
+    spillere.map(s => `<option value="${s.id}">${escHtml(s.navn)}</option>`).join('');
+
+  const klubbId  = _getAktivKlubbId();
+  const lagretId = klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId);
+  if (lagretId && spillere.some(s => s.id === lagretId)) navnSelect.value = lagretId;
+
+  const spillerListe = document.getElementById('botkassa-fp-spillerliste');
+  spillerListe.innerHTML = spillere.length
+    ? spillere.map(s => `
+        <div class="bk-spiller-item" id="bk-fps-${s.id}" onclick="window.botkassaToggleSpillerFP('${s.id}')">
+          <div class="bk-checkbox">✓</div><div>${escHtml(s.navn)}</div>
+        </div>`).join('')
+    : `<div class="tom-tilstand-liten">Fant ingen spillere for klubben.</div>`;
+
+  document.getElementById('botkassa-fp-kategoriliste').innerHTML = FAIRPLAY_KATEGORIER.map(k => `
+    <div class="bk-paragraf-item bk-paragraf-item-fairplay" id="bk-fpk-${k.id}" onclick="window.botkassaVelgKategoriFP('${k.id}')">
+      <div class="bk-paragraf-emoji">${k.emoji}</div>
+      <div class="bk-paragraf-tittel">${escHtml(k.tittel)}</div>
+    </div>`).join('');
+
+  document.getElementById('botkassa-fp-kommentar').value = '';
+}
+window.visBotkassaFairplay = visBotkassaFairplay;
+
+window.botkassaToggleSpillerFP = function(id) {
+  if (valgteSpillereIdsFP.has(id)) valgteSpillereIdsFP.delete(id); else valgteSpillereIdsFP.add(id);
+  document.getElementById('bk-fps-'+id).classList.toggle('valgt', valgteSpillereIdsFP.has(id));
+};
+
+window.botkassaVelgKategoriFP = function(id) {
+  valgtKategoriId = id;
+  document.querySelectorAll('#botkassa-fp-kategoriliste .bk-paragraf-item').forEach(el =>
+    el.classList.toggle('valgt', el.id === 'bk-fpk-'+id));
+};
+
+window.botkassaSendFairplay = async function() {
+  const klubbId = _getAktivKlubbId();
+  const mittId  = document.getElementById('botkassa-fp-mittnavn').value;
+  if (!mittId) return visMelding('Velg hvem du er', 'advarsel');
+  if (!valgteSpillereIdsFP.size) return visMelding('Velg minst én spiller', 'advarsel');
+  if (!valgtKategoriId) return visMelding('Velg en kategori', 'advarsel');
+
+  const mittNavn = spillere.find(s => s.id === mittId)?.navn ?? '?';
+  const k = FAIRPLAY_KATEGORIER.find(x => x.id === valgtKategoriId);
+  const motSpillere = spillere.filter(s => valgteSpillereIdsFP.has(s.id)).map(s => ({ id: s.id, navn: s.navn }));
+  const kommentar = document.getElementById('botkassa-fp-kommentar').value.trim();
+  const btn = document.getElementById('botkassa-fp-send-btn');
+  btn.disabled = true;
+
+  try {
+    await opprettFairPlayPoeng({
+      klubbId, meldtAvId: mittId, meldtAvNavn: mittNavn, motSpillere,
+      kategoriId: k.id, kategoriTittel: `${k.emoji} ${k.tittel}`,
+      kommentar,
+    });
+    visMelding('Fair Play-poeng sendt! 🤝');
+    _naviger('botkassa-hjem');
+  } catch (e) {
+    console.warn('[Botkassa] sendFairplay feilet:', e?.message);
+    visMelding('Kunne ikke sende — sjekk firestore-reglene', 'feil');
   } finally {
     btn.disabled = false;
   }
