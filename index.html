@@ -55,6 +55,9 @@
       <button class="knapp knapp-omriss" onclick="window.visBotkassaStats?.()">🏆 Statistikk</button>
       <button class="knapp knapp-omriss" onclick="window.visBotkassaRegler?.()">📖 Regler</button>
     </div>
+    <div style="margin-top:8px">
+      <button class="knapp knapp-omriss" style="width:100%" onclick="window.visBotkassaSvar?.()">🙋 Venter på deg</button>
+    </div>
 
     <div class="seksjon-etikett" style="margin-top:26px">🚨 Siste i feeden</div>
     <div id="botkassa-hjem-feed"><div class="laster"><span class="laster-snurr"></span> Laster feed …</div></div>
@@ -86,6 +89,22 @@
 
     <button class="knapp knapp-primaer" id="botkassa-meld-send-btn" onclick="window.botkassaSendInnmelding()">Send inn →</button>
     <p class="bk-liten-tekst" style="text-align:center;margin-top:12px">Ingen bot registreres automatisk — botansvarlig godkjenner eller avviser først.</p>
+  </div>
+</div>
+
+<!-- ── BOTKASSA — VENTER PÅ DEG (svar/forklaring) ── -->
+<div id="skjerm-botkassa-svar" class="screen">
+  <div class="app-header">
+    <button class="tilbake-btn" onclick="naviger('botkassa-hjem')">←</button>
+    <div style="flex:1">
+      <div class="app-name">Venter på deg</div>
+      <div class="app-sub">Kom med din versjon før boten avgjøres</div>
+    </div>
+  </div>
+  <div class="scroll-omrade">
+    <label>Hvem er du?</label>
+    <select id="botkassa-svar-mittnavn" style="margin-bottom:18px" onchange="window.botkassaSvarByttNavn(this.value)"></select>
+    <div id="botkassa-svar-innhold"></div>
   </div>
 </div>
 

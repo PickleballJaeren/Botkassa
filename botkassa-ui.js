@@ -10,8 +10,8 @@
 // ════════════════════════════════════════════════════════
 import { escHtml, visMelding } from './ui.js';
 import {
-  hentSpillere, hentParagrafer, lyttPaBoter,
-  opprettInnmelding, likeBot, topListe, sumListe,
+  hentSpillere, hentParagrafer, lyttPaBoter, lyttPaVentende,
+  opprettInnmelding, svarPaInnmelding, likeBot, topListe, sumListe,
 } from './botkassa-logikk.js';
 
 let _naviger        = () => {};
@@ -21,9 +21,11 @@ let _klubbNavn       = '';
 let spillere   = [];
 let paragrafer = [];
 let boter      = [];
+let ventende   = [];
 let valgteSpillereIds = new Set();
 let valgtParagrafId   = null;
 let avslyttBoter = null;
+let avslyttVentende = null;
 let lastetForKlubb = null;
 
 export function botkassaUIInit({ naviger, getAktivKlubbId, getKlubbNavn }) {
@@ -55,6 +57,12 @@ export async function visBotkassaOversikt() {
       renderFeedPreview();
       if (skjermErAktiv('botkassa-feed')) renderFeedFull();
       if (skjermErAktiv('botkassa-stats')) renderStats();
+    });
+
+    if (avslyttVentende) avslyttVentende();
+    avslyttVentende = lyttPaVentende(klubbId, nye => {
+      ventende = nye;
+      if (skjermErAktiv('botkassa-svar')) renderSvar();
     });
   } else {
     renderHjemStats();
@@ -128,6 +136,7 @@ function feedKortHtml(b) {
     </div>
     <div class="bk-feed-paragraf">${escHtml(b.paragrafTittel)}</div>
     ${b.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(b.kommentar)}»</div>` : ''}
+    ${b.forklaring ? `<div class="bk-feed-forklaring">😅 ${escHtml(b.spillerNavn)} forklarer: «${escHtml(b.forklaring)}»</div>` : ''}
     <div class="bk-feed-footer">
       <span class="bk-feed-meldtav">Meldt inn av ${escHtml(b.meldtAvNavn || '?')} · ${b.betalt ? '🟢 Betalt' : '🟠 Ikke betalt'}</span>
       <button class="bk-like-btn${harLikt ? ' likt' : ''}" onclick="window.botkassaLike('${b.id}')">😂 ${b.likes || 0}</button>
@@ -334,5 +343,67 @@ window.botkassaSendInnmelding = async function() {
     visMelding('Kunne ikke sende inn — sjekk firestore-reglene', 'feil');
   } finally {
     btn.disabled = false;
+  }
+};
+
+// ════════════════════════════════════════════════════════
+// VENTER PÅ DEG — den anklagede kan forklare seg før boten
+// avgjøres. Gjenbruker samme "hvem er du"-lagring (localStorage)
+// som Meld inn bot, siden appen ikke har ekte innlogging.
+// Forklaringen lagres på selve innmeldingen (svarPaInnmelding)
+// og følger med til bot-posten hvis saken godkjennes — da vises
+// den åpent i feeden (se feedKortHtml).
+// ════════════════════════════════════════════════════════
+export function visBotkassaSvar() {
+  _naviger('botkassa-svar');
+  const klubbId = _getAktivKlubbId();
+
+  const navnSelect = document.getElementById('botkassa-svar-mittnavn');
+  navnSelect.innerHTML = `<option value="" disabled selected>Velg deg selv …</option>` +
+    spillere.map(s => `<option value="${s.id}">${escHtml(s.navn)}</option>`).join('');
+
+  const lagretId = klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId);
+  if (lagretId && spillere.some(s => s.id === lagretId)) navnSelect.value = lagretId;
+
+  renderSvar();
+}
+window.visBotkassaSvar = visBotkassaSvar;
+
+window.botkassaSvarByttNavn = function(id) {
+  const klubbId = _getAktivKlubbId();
+  if (klubbId && id) localStorage.setItem('bk_mitt_navn_id_' + klubbId, id);
+  renderSvar();
+};
+
+function renderSvar() {
+  const el = document.getElementById('botkassa-svar-innhold');
+  const klubbId = _getAktivKlubbId();
+  const mittId  = klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId);
+
+  if (!mittId) { el.innerHTML = `<div class="tom-tilstand-liten">Velg deg selv over for å se om noe venter på deg.</div>`; return; }
+
+  const mine = ventende.filter(im => im.motSpillere?.some(m => m.id === mittId));
+  if (!mine.length) { el.innerHTML = `<div class="tom-tilstand">Ingenting venter på deg akkurat nå. 🎉</div>`; return; }
+
+  el.innerHTML = mine.map(im => {
+    const eksisterende = im.svar?.[mittId]?.tekst || '';
+    return `<div class="bk-admin-card">
+      <div class="bk-feed-paragraf">${escHtml(im.paragrafTittel)}${im.foreslattBelop ? ' · foreslått ' + im.foreslattBelop + ' kr' : ''}</div>
+      ${im.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(im.kommentar)}» — ${escHtml(im.meldtAvNavn)}</div>` : ''}
+      <label style="margin-top:10px">Din forklaring (valgfritt — blir synlig i feeden hvis boten godkjennes)</label>
+      <textarea id="bk-svar-${im.id}" placeholder="F.eks. «Jeg trodde egentlig at …»">${escHtml(eksisterende)}</textarea>
+      <button class="knapp knapp-primaer knapp-liten" style="margin-top:8px" onclick="window.botkassaSendSvar('${im.id}','${mittId}')">${eksisterende ? 'Oppdater forklaring' : 'Send forklaring'}</button>
+    </div>`;
+  }).join('');
+}
+
+window.botkassaSendSvar = async function(innmeldingId, spillerId) {
+  const tekst = document.getElementById('bk-svar-' + innmeldingId).value.trim();
+  try {
+    await svarPaInnmelding(innmeldingId, spillerId, tekst);
+    visMelding('Forklaring sendt! 🥒');
+  } catch (e) {
+    console.warn('[Botkassa] svarPaInnmelding feilet:', e?.message);
+    visMelding('Kunne ikke sende — sjekk firestore-reglene', 'feil');
   }
 };

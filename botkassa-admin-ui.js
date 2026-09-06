@@ -103,6 +103,9 @@ function renderKo() {
       <div class="bk-admin-head"><div><strong>${escHtml(im.meldtAvNavn)}</strong> → ${escHtml(im.motSpillere.map(m=>m.navn).join(', '))}</div></div>
       <div class="bk-feed-paragraf">${escHtml(im.paragrafTittel)} · foreslått ${im.foreslattBelop || 0} kr</div>
       ${im.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(im.kommentar)}»</div>` : ''}
+      ${im.motSpillere.map(m => im.svar?.[m.id]?.tekst
+          ? `<div class="bk-feed-forklaring">😅 ${escHtml(m.navn)} forklarer: «${escHtml(im.svar[m.id].tekst)}»</div>`
+          : '').join('')}
       <div class="bk-admin-row">
         <button class="knapp knapp-ok knapp-liten" onclick="window.botkassaGodkjenn('${im.id}')">Godkjenn</button>
         <button class="knapp knapp-omriss knapp-liten" onclick="window.botkassaVisJuster('${im.id}')">Juster</button>

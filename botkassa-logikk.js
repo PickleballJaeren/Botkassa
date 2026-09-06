@@ -131,6 +131,19 @@ export async function avvisInnmelding(innmeldingId, behandletAvNavn) {
 }
 
 /**
+ * Lagrer en anklagets forklaring/unnskyldning på en ventende innmelding, én
+ * per spiller (siden en innmelding kan gjelde flere ved lagstraff). Kan
+ * kalles på nytt for å redigere svaret så lenge saken ikke er avgjort.
+ * Forklaringen følger med til selve bot-posten hvis/når saken godkjennes
+ * (se godkjennInnmelding), og vises da åpent i feeden.
+ */
+export async function svarPaInnmelding(innmeldingId, spillerId, tekst) {
+  await updateDoc(doc(db, SAM.INNMELDINGER, innmeldingId), {
+    [`svar.${spillerId}`]: { tekst, tidspunkt: serverTimestamp() },
+  });
+}
+
+/**
  * Godkjenner en innmelding. Oppretter én bot-post per spiller i
  * motSpillere (relevant for lagstraffer). Kjører karma-sjekk per
  * spiller, med en "ladning"-modell: hver gang vedkommende selv har
@@ -187,6 +200,7 @@ export async function godkjennInnmelding(innmelding, baseBelop, behandletAvNavn)
       belop: endeligBelop,
       karmaDoblet: karmaTreff,
       kommentar: kommentar || '',
+      forklaring: innmelding.svar?.[mot.id]?.tekst || '',
       meldtAvId, meldtAvNavn,
       behandletAvNavn,
       betalt: false,
