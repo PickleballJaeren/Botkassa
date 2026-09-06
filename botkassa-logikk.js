@@ -148,13 +148,20 @@ export async function godkjennInnmelding(innmelding, baseBelop, behandletAvNavn)
 
   for (const mot of motSpillere) {
     // Hvor mange ganger har spilleren selv meldt inn noen for denne paragrafen?
+    // NB: teller UNIKE innmeldinger, ikke antall bot-dokumenter — en innmelding
+    // med flere anklagede (f.eks. lagstraff) skal bare gi én ladning, ikke én
+    // per anklaget. Eldre bot-dokumenter uten innmeldingId (fra før denne
+    // fiksen) teller ikke med.
     const meldtSnap = await getDocs(query(
       collection(db, SAM.BOTER),
       where('klubbId', '==', klubbId),
       where('meldtAvId', '==', mot.id),
       where('paragrafId', '==', paragrafId),
     ));
-    const antallLadninger = meldtSnap.size;
+    const unikeInnmeldinger = new Set(
+      meldtSnap.docs.map(d => d.data().innmeldingId).filter(Boolean)
+    );
+    const antallLadninger = unikeInnmeldinger.size;
 
     let karmaTreff = false;
     if (antallLadninger > 0) {
@@ -173,6 +180,7 @@ export async function godkjennInnmelding(innmelding, baseBelop, behandletAvNavn)
 
     await addDoc(collection(db, SAM.BOTER), {
       klubbId,
+      innmeldingId: innmelding.id,
       spillerId: mot.id, spillerNavn: mot.navn,
       paragrafId, paragrafTittel,
       belop: endeligBelop,

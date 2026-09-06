@@ -133,6 +133,22 @@ window.visBotkassaRegler = visBotkassaRegler;
 // ════════════════════════════════════════════════════════
 // STATISTIKK
 // ════════════════════════════════════════════════════════
+
+/**
+ * Finner spilleren(e) med færrest bøter denne sesongen — "Årets helgen".
+ * Teller blant ALLE registrerte spillere (ikke bare de i feeden), slik at
+ * noen med null bøter faktisk kan vinne. Ved likt antall deles tittelen.
+ */
+function finnArsHelgen() {
+  if (!spillere.length) return null;
+  const tellinger = {};
+  spillere.forEach(s => { tellinger[s.navn] = 0; });
+  boter.forEach(b => { tellinger[b.spillerNavn] = (tellinger[b.spillerNavn] ?? 0) + 1; });
+
+  const minAntall = Math.min(...Object.values(tellinger));
+  const vinnere   = Object.entries(tellinger).filter(([,n]) => n === minAntall).map(([navn]) => navn);
+  return { navn: vinnere.join(' & '), antall: minAntall };
+}
 function renderStats() {
   const el = document.getElementById('botkassa-stats-innhold');
   if (!boter.length) { el.innerHTML = `<div class="tom-tilstand">Ingen data å vise ennå.</div>`; return; }
@@ -140,7 +156,7 @@ function renderStats() {
   const botligaen    = topListe(boter, 'spillerNavn').slice(0,8);
   const bidragsyter  = sumListe(boter, 'spillerNavn', 'belop')[0];
   const botpoliti    = topListe(boter, 'meldtAvNavn')[0];
-  const dommer       = topListe(boter.filter(b => b.behandletAvNavn), 'behandletAvNavn')[0];
+  const helgen       = finnArsHelgen();
   const sylteagurk   = botligaen[0];
 
   el.innerHTML = `
@@ -148,7 +164,7 @@ function renderStats() {
     <div class="bk-title-grid" style="margin-bottom:20px">
       <div class="bk-title-card"><div class="bk-title-emoji"><img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div><div class="bk-title-navn">${escHtml(sylteagurk?.key ?? '—')}</div><div class="bk-title-label">Årets sylteagurk<br>(flest bøter)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">👮</div><div class="bk-title-navn">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-title-label">Årets botpoliti<br>(flest innmeldinger)</div></div>
-      <div class="bk-title-card"><div class="bk-title-emoji">⚖️</div><div class="bk-title-navn">${escHtml(dommer?.key ?? '—')}</div><div class="bk-title-label">Årets dommer<br>(flest godkjente)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji">😇</div><div class="bk-title-navn">${escHtml(helgen?.navn ?? '—')}</div><div class="bk-title-label">Årets helgen<br>(færrest bøter)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">💸</div><div class="bk-title-navn">${escHtml(bidragsyter?.key ?? '—')}</div><div class="bk-title-label">Årets bidragsyter<br>(høyest sum)</div></div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:20px">😂 Årets unnskyldning og 🏓 Årets fair-play-spiller kåres manuelt av styret ved sesongslutt.</p>
