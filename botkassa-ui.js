@@ -153,9 +153,13 @@ window.visBotkassaRegler = visBotkassaRegler;
 // ════════════════════════════════════════════════════════
 
 /**
- * Finner spilleren(e) med færrest bøter blant dem som faktisk HAR fått minst
- * én bot denne sesongen — "Årets nesten-helgen". Utelater spillere med null
- * bøter, som ellers dominerer kåringen med en lang uavgjort-liste.
+ * Finner ÉN spiller — "Årets nesten-helgen" — blant dem som faktisk har fått
+ * minst én bot denne sesongen: den med færrest bøter, og ved uavgjort den
+ * som SIST havnet i bunnsjiktet (dvs. hvis flere deler laveste antall, er
+ * det den med nyeste bot av disse som får tittelen — ikke alle på likt).
+ * `boter` kommer allerede sortert nyest-først (se lyttPaBoter), så vi kan
+ * bare gå gjennom lista og plukke den første boten som tilhører noen i
+ * bunnsjiktet.
  */
 function finnArsNestenHelgen() {
   const tellinger = {};
@@ -163,9 +167,11 @@ function finnArsNestenHelgen() {
   const antallListe = Object.values(tellinger);
   if (!antallListe.length) return null;
 
-  const minAntall = Math.min(...antallListe);
-  const vinnere   = Object.entries(tellinger).filter(([,n]) => n === minAntall).map(([navn]) => navn);
-  return { navn: vinnere.join(' & '), antall: minAntall };
+  const minAntall  = Math.min(...antallListe);
+  const kandidater = new Set(Object.entries(tellinger).filter(([,n]) => n === minAntall).map(([navn]) => navn));
+
+  const sisteBot = boter.find(b => kandidater.has(b.spillerNavn));
+  return { navn: sisteBot.spillerNavn, antall: minAntall };
 }
 function renderStats() {
   const el = document.getElementById('botkassa-stats-innhold');
