@@ -15,6 +15,7 @@
 import {
   db, collection, doc, addDoc, updateDoc, setDoc, deleteDoc, getDoc, getDocs,
   query, where, orderBy, limit, onSnapshot, serverTimestamp, increment, writeBatch,
+  arrayUnion, arrayRemove,
 } from './firebase.js';
 
 const SAM = {
@@ -208,8 +209,19 @@ export async function settBetalt(botId, verdi) {
   await updateDoc(doc(db, SAM.BOTER, botId), { betalt: verdi });
 }
 
-export async function likeBot(botId) {
-  await updateDoc(doc(db, SAM.BOTER, botId), { likes: increment(1) });
+/**
+ * Like/unlike en bot. Sporer hvem som har likt via en anonym enhets-ID
+ * (lagret i localStorage, se enhetsId() i botkassa-ui.js) i feltet
+ * `likedAv` på selve bot-dokumentet, slik at én enhet ikke kan stable
+ * opp uendelig mange likes på samme forseelse — og status er riktig
+ * på tvers av innlastinger og andre enheter (siden feltet ligger i
+ * Firestore og synces via lyttPaBoter).
+ */
+export async function likeBot(botId, enhetsId, harAlleredeLikt) {
+  await updateDoc(doc(db, SAM.BOTER, botId), {
+    likes:   increment(harAlleredeLikt ? -1 : 1),
+    likedAv: harAlleredeLikt ? arrayRemove(enhetsId) : arrayUnion(enhetsId),
+  });
 }
 
 // ════════════════════════════════════════════════════════

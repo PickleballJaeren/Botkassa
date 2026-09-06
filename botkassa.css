@@ -118,6 +118,7 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-feed-meldtav{font-size:13px;color:var(--muted)}
 .bk-like-btn{background:none;border:1px solid var(--border2);border-radius:20px;padding:5px 12px;color:var(--muted2);font-size:14px;cursor:pointer}
 .bk-like-btn:active{transform:scale(.94)}
+.bk-like-btn.likt{background:rgba(37,99,235,.15);border-color:var(--accent2);color:var(--accent2);font-weight:700}
 .bk-karma-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(220,38,38,.15);color:var(--red2);font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:6px;letter-spacing:.3px}
 
 .bk-paragraf-item{display:flex;align-items:center;gap:12px;background:#060e1c;border:1px solid var(--border2);border-radius:12px;padding:12px 14px;cursor:pointer;transition:border-color .15s;margin-bottom:8px}

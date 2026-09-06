@@ -69,6 +69,21 @@ function lasterHtml(tekst) {
   return `<div class="laster"><span class="laster-snurr"></span> ${escHtml(tekst)}</div>`;
 }
 
+/**
+ * Stabil, anonym ID for denne enheten/nettleseren — brukes til å hindre at
+ * samme person kan like samme bot flere ganger (se botkassaLike/likeBot).
+ * Ingen ekte identitet: sletter man localStorage eller bruker en annen
+ * enhet, kan man like på nytt. Samme tillitsnivå som resten av appen.
+ */
+function enhetsId() {
+  let id = localStorage.getItem('bk_enhet_id');
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : 'e_' + Math.random().toString(36).slice(2) + Date.now();
+    localStorage.setItem('bk_enhet_id', id);
+  }
+  return id;
+}
+
 // ════════════════════════════════════════════════════════
 // HJEM
 // ════════════════════════════════════════════════════════
@@ -104,7 +119,8 @@ function renderFeedFull() {
 }
 
 function feedKortHtml(b) {
-  const karma = b.karmaDoblet ? `<span class="bk-karma-badge">⚖️ KARMA — doblet</span>` : '';
+  const karma     = b.karmaDoblet ? `<span class="bk-karma-badge">⚖️ KARMA — doblet</span>` : '';
+  const harLikt   = Array.isArray(b.likedAv) && b.likedAv.includes(enhetsId());
   return `<div class="bk-feed-card">
     <div class="bk-feed-head">
       <div class="bk-feed-navn">${escHtml(b.spillerNavn)} ${karma}</div>
@@ -114,12 +130,14 @@ function feedKortHtml(b) {
     ${b.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(b.kommentar)}»</div>` : ''}
     <div class="bk-feed-footer">
       <span class="bk-feed-meldtav">Meldt inn av ${escHtml(b.meldtAvNavn || '?')} · ${b.betalt ? '🟢 Betalt' : '🟠 Ikke betalt'}</span>
-      <button class="bk-like-btn" onclick="window.botkassaLike('${b.id}')">😂 ${b.likes || 0}</button>
+      <button class="bk-like-btn${harLikt ? ' likt' : ''}" onclick="window.botkassaLike('${b.id}')">😂 ${b.likes || 0}</button>
     </div>
   </div>`;
 }
 window.botkassaLike = async function(id) {
-  try { await likeBot(id); }
+  const b = boter.find(x => x.id === id);
+  const harAlleredeLikt = Array.isArray(b?.likedAv) && b.likedAv.includes(enhetsId());
+  try { await likeBot(id, enhetsId(), harAlleredeLikt); }
   catch (e) { visMelding('Kunne ikke like — sjekk firestore-reglene', 'feil'); }
 };
 
@@ -135,17 +153,17 @@ window.visBotkassaRegler = visBotkassaRegler;
 // ════════════════════════════════════════════════════════
 
 /**
- * Finner spilleren(e) med færrest bøter denne sesongen — "Årets helgen".
- * Teller blant ALLE registrerte spillere (ikke bare de i feeden), slik at
- * noen med null bøter faktisk kan vinne. Ved likt antall deles tittelen.
+ * Finner spilleren(e) med færrest bøter blant dem som faktisk HAR fått minst
+ * én bot denne sesongen — "Årets nesten-helgen". Utelater spillere med null
+ * bøter, som ellers dominerer kåringen med en lang uavgjort-liste.
  */
-function finnArsHelgen() {
-  if (!spillere.length) return null;
+function finnArsNestenHelgen() {
   const tellinger = {};
-  spillere.forEach(s => { tellinger[s.navn] = 0; });
   boter.forEach(b => { tellinger[b.spillerNavn] = (tellinger[b.spillerNavn] ?? 0) + 1; });
+  const antallListe = Object.values(tellinger);
+  if (!antallListe.length) return null;
 
-  const minAntall = Math.min(...Object.values(tellinger));
+  const minAntall = Math.min(...antallListe);
   const vinnere   = Object.entries(tellinger).filter(([,n]) => n === minAntall).map(([navn]) => navn);
   return { navn: vinnere.join(' & '), antall: minAntall };
 }
@@ -156,7 +174,7 @@ function renderStats() {
   const botligaen    = topListe(boter, 'spillerNavn').slice(0,8);
   const bidragsyter  = sumListe(boter, 'spillerNavn', 'belop')[0];
   const botpoliti    = topListe(boter, 'meldtAvNavn')[0];
-  const helgen       = finnArsHelgen();
+  const nestenHelgen = finnArsNestenHelgen();
   const sylteagurk   = botligaen[0];
 
   el.innerHTML = `
@@ -164,7 +182,7 @@ function renderStats() {
     <div class="bk-title-grid" style="margin-bottom:20px">
       <div class="bk-title-card"><div class="bk-title-emoji"><img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div><div class="bk-title-navn">${escHtml(sylteagurk?.key ?? '—')}</div><div class="bk-title-label">Årets sylteagurk<br>(flest bøter)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">👮</div><div class="bk-title-navn">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-title-label">Årets botpoliti<br>(flest innmeldinger)</div></div>
-      <div class="bk-title-card"><div class="bk-title-emoji">😇</div><div class="bk-title-navn">${escHtml(helgen?.navn ?? '—')}</div><div class="bk-title-label">Årets helgen<br>(færrest bøter)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji">🙏</div><div class="bk-title-navn">${escHtml(nestenHelgen?.navn ?? '—')}</div><div class="bk-title-label">Årets nesten-helgen<br>(færrest bøter, blant de skyldige)</div></div>
       <div class="bk-title-card"><div class="bk-title-emoji">💸</div><div class="bk-title-navn">${escHtml(bidragsyter?.key ?? '—')}</div><div class="bk-title-label">Årets bidragsyter<br>(høyest sum)</div></div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:20px">😂 Årets unnskyldning og 🏓 Årets fair-play-spiller kåres manuelt av styret ved sesongslutt.</p>
