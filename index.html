@@ -87,7 +87,9 @@
     <select id="botkassa-meld-mittnavn" style="margin-bottom:18px" onchange="window.botkassaLagreMittNavn?.(this.value)"></select>
 
     <label>Hvem gjelder det?</label>
-    <div class="bk-spiller-liste" id="botkassa-meld-spillerliste" style="margin-bottom:18px"></div>
+    <input type="text" id="botkassa-meld-sok" placeholder="Søk etter spiller …" style="margin-bottom:8px" oninput="window.botkassaFiltrerSpillerliste('meld', this.value)">
+    <div class="bk-spiller-liste" id="botkassa-meld-spillerliste" style="margin-bottom:6px"></div>
+    <div id="botkassa-meld-ingen-treff" class="tom-tilstand-liten" style="display:none;margin-bottom:12px">Ingen spillere matcher søket.</div>
 
     <label>Paragraf</label>
     <div id="botkassa-meld-paragrafliste" style="margin-bottom:6px"></div>
@@ -115,7 +117,9 @@
     <select id="botkassa-fp-mittnavn" style="margin-bottom:18px" onchange="window.botkassaLagreMittNavn?.(this.value)"></select>
 
     <label>Hvem gjelder det?</label>
-    <div class="bk-spiller-liste" id="botkassa-fp-spillerliste" style="margin-bottom:18px"></div>
+    <input type="text" id="botkassa-fp-sok" placeholder="Søk etter spiller …" style="margin-bottom:8px" oninput="window.botkassaFiltrerSpillerliste('fp', this.value)">
+    <div class="bk-spiller-liste" id="botkassa-fp-spillerliste" style="margin-bottom:6px"></div>
+    <div id="botkassa-fp-ingen-treff" class="tom-tilstand-liten" style="display:none;margin-bottom:12px">Ingen spillere matcher søket.</div>
 
     <label>Kategori</label>
     <div id="botkassa-fp-kategoriliste" style="margin-bottom:18px"></div>

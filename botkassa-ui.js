@@ -450,10 +450,12 @@ export function visBotkassaMeld() {
   const spillerListe = document.getElementById('botkassa-meld-spillerliste');
   spillerListe.innerHTML = spillere.length
     ? spillere.map(s => `
-        <div class="bk-spiller-item" id="bk-ms-${s.id}" onclick="window.botkassaToggleSpiller('${s.id}')">
+        <div class="bk-spiller-item" id="bk-ms-${s.id}" data-navn="${escHtml(s.navn).toLowerCase()}" onclick="window.botkassaToggleSpiller('${s.id}')">
           <div class="bk-checkbox">✓</div><div>${escHtml(s.navn)}</div>
         </div>`).join('')
     : `<div class="tom-tilstand-liten">Fant ingen spillere for klubben.</div>`;
+  document.getElementById('botkassa-meld-sok').value = '';
+  document.getElementById('botkassa-meld-ingen-treff').style.display = 'none';
 
   document.getElementById('botkassa-meld-paragrafliste').innerHTML = paragrafer.map(p => `
     <div class="bk-paragraf-item" id="bk-mp-${p.id}" onclick="window.botkassaVelgParagraf('${p.id}')">
@@ -471,6 +473,29 @@ window.botkassaLagreMittNavn = function(id) {
   const klubbId = _getAktivKlubbId();
   if (klubbId && id) localStorage.setItem('bk_mitt_navn_id_' + klubbId, id);
   renderVenterVarsel();
+};
+
+/**
+ * Filtrerer den scrollbare spillerlisten på "Meld inn bot" og "Fair Play"
+ * live mens man skriver — skjuler ikke-treff i stedet for å bygge listen
+ * på nytt, slik at valgte spillere (bk-spiller-item.valgt) beholder
+ * status uendret selv om de midlertidig filtreres bort og fram igjen.
+ */
+window.botkassaFiltrerSpillerliste = function(hvilken, sokTekst) {
+  const containerId = hvilken === 'fp' ? 'botkassa-fp-spillerliste' : 'botkassa-meld-spillerliste';
+  const tomId       = hvilken === 'fp' ? 'botkassa-fp-ingen-treff'  : 'botkassa-meld-ingen-treff';
+  const container = document.getElementById(containerId);
+  const tomEl     = document.getElementById(tomId);
+  if (!container) return;
+
+  const sok = sokTekst.trim().toLowerCase();
+  let synligeAntall = 0;
+  container.querySelectorAll('.bk-spiller-item').forEach(el => {
+    const treff = !sok || (el.dataset.navn || '').includes(sok);
+    el.style.display = treff ? 'flex' : 'none';
+    if (treff) synligeAntall++;
+  });
+  if (tomEl) tomEl.style.display = synligeAntall === 0 ? 'block' : 'none';
 };
 
 window.botkassaToggleSpiller = function(id) {
@@ -543,10 +568,12 @@ export function visBotkassaFairplay() {
   const spillerListe = document.getElementById('botkassa-fp-spillerliste');
   spillerListe.innerHTML = spillere.length
     ? spillere.map(s => `
-        <div class="bk-spiller-item" id="bk-fps-${s.id}" onclick="window.botkassaToggleSpillerFP('${s.id}')">
+        <div class="bk-spiller-item" id="bk-fps-${s.id}" data-navn="${escHtml(s.navn).toLowerCase()}" onclick="window.botkassaToggleSpillerFP('${s.id}')">
           <div class="bk-checkbox">✓</div><div>${escHtml(s.navn)}</div>
         </div>`).join('')
     : `<div class="tom-tilstand-liten">Fant ingen spillere for klubben.</div>`;
+  document.getElementById('botkassa-fp-sok').value = '';
+  document.getElementById('botkassa-fp-ingen-treff').style.display = 'none';
 
   document.getElementById('botkassa-fp-kategoriliste').innerHTML = FAIRPLAY_KATEGORIER.map(k => `
     <div class="bk-paragraf-item bk-paragraf-item-fairplay" id="bk-fpk-${k.id}" onclick="window.botkassaVelgKategoriFP('${k.id}')">
