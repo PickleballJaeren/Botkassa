@@ -715,8 +715,8 @@ async function renderMinSide() {
       <div class="bk-stat-tile full"><span class="bk-stat-label" style="margin:0">👮 Meldt inn av deg</span><span class="bk-stat-value">${mineInnmeldinger.length}</span></div>
     </div>
 
-    <div class="seksjon-etikett">Dine innmeldinger</div>
-    ${mineInnmeldinger.length ? mineInnmeldinger.map(innmeldingRadHtml).join('') : `<div class="tom-tilstand-liten">Du har ikke meldt inn noen ennå.</div>`}
+    <div class="seksjon-etikett">Dine siste innmeldinger</div>
+    ${mineInnmeldinger.length ? mineInnmeldinger.slice(0,5).map(innmeldingRadHtml).join('') : `<div class="tom-tilstand-liten">Du har ikke meldt inn noen ennå.</div>`}
   `;
 }
 
