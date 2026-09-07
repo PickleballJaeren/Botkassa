@@ -15,10 +15,12 @@ import {
   opprettFairPlayPoeng, likeFairPlay, FAIRPLAY_KATEGORIER,
   topListe, sumListe,
 } from './botkassa-logikk.js';
+import { delSesongbilde } from './botkassa-del-sesong.js';
 
 let _naviger        = () => {};
 let _getAktivKlubbId = () => null;
 let _klubbNavn       = '';
+let _krevAdmin       = (tittel, tekst, cb) => cb();
 
 let spillere   = [];
 let paragrafer = [];
@@ -34,10 +36,11 @@ let avslyttVentende = null;
 let avslyttFairPlay = null;
 let lastetForKlubb = null;
 
-export function botkassaUIInit({ naviger, getAktivKlubbId, getKlubbNavn }) {
+export function botkassaUIInit({ naviger, getAktivKlubbId, getKlubbNavn, krevAdmin }) {
   _naviger = naviger;
   _getAktivKlubbId = getAktivKlubbId;
   _klubbNavn = getKlubbNavn ?? (() => '');
+  if (krevAdmin) _krevAdmin = krevAdmin;
 }
 
 /** Kalles fra "Åpne Botkassa"-knappen på hjem-skjermen. */
@@ -294,10 +297,11 @@ function finnArsNestenHelgen() {
   const sisteBot = boter.find(b => kandidater.has(b.spillerNavn));
   return { navn: sisteBot.spillerNavn, antall: minAntall };
 }
-function renderStats() {
-  const el = document.getElementById('botkassa-stats-innhold');
-  if (!boter.length && !fairPlay.length) { el.innerHTML = `<div class="tom-tilstand">Ingen data å vise ennå.</div>`; return; }
-
+/**
+ * Regner ut alt som trengs for både statistikkvisningen og det delbare
+ * sesongbildet, ett sted — slik at de to alltid viser samme tall.
+ */
+function beregnSesongData() {
   const botligaen     = topListe(boter, 'spillerNavn').slice(0,8);
   const fairPlayLiga  = topListe(fairPlay, 'spillerNavn').slice(0,8);
   const bidragsyter   = sumListe(boter, 'spillerNavn', 'belop')[0];
@@ -306,14 +310,35 @@ function renderStats() {
   const sylteagurk    = botligaen[0];
   const fairPlayLeder = fairPlayLiga[0];
 
+  return {
+    klubbNavn:     _klubbNavn(),
+    sesongAar:     new Date().getFullYear(),
+    botligaen, fairPlayLiga,
+    sylteagurk:    sylteagurk?.key ?? null,
+    botpoliti:     botpoliti?.key ?? null,
+    nestenHelgen:  nestenHelgen?.navn ?? null,
+    bidragsyter:   bidragsyter?.key ?? null,
+    fairPlayLeder: fairPlayLeder?.key ?? null,
+    sum:           boter.reduce((s,b) => s + (b.belop||0), 0),
+    antallBoter:   boter.length,
+  };
+}
+
+function renderStats() {
+  const el = document.getElementById('botkassa-stats-innhold');
+  if (!boter.length && !fairPlay.length) { el.innerHTML = `<div class="tom-tilstand">Ingen data å vise ennå.</div>`; return; }
+
+  const d = beregnSesongData();
+  const { botligaen, fairPlayLiga } = d;
+
   el.innerHTML = `
     <div class="seksjon-etikett">🏆 Årets titler</div>
     <div class="bk-title-grid" style="margin-bottom:20px">
-      <div class="bk-title-card"><div class="bk-title-emoji"><img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div><div class="bk-title-navn">${escHtml(sylteagurk?.key ?? '—')}</div><div class="bk-title-label">Årets sylteagurk<br>(flest bøter)</div></div>
-      <div class="bk-title-card"><div class="bk-title-emoji">👮</div><div class="bk-title-navn">${escHtml(botpoliti?.key ?? '—')}</div><div class="bk-title-label">Årets botpoliti<br>(flest innmeldinger)</div></div>
-      <div class="bk-title-card"><div class="bk-title-emoji">🙏</div><div class="bk-title-navn">${escHtml(nestenHelgen?.navn ?? '—')}</div><div class="bk-title-label">Årets nesten-helgen<br>(færrest bøter, blant de skyldige)</div></div>
-      <div class="bk-title-card"><div class="bk-title-emoji">💸</div><div class="bk-title-navn">${escHtml(bidragsyter?.key ?? '—')}</div><div class="bk-title-label">Årets bidragsyter<br>(høyest sum)</div></div>
-      <div class="bk-title-card bk-title-card-fairplay" style="grid-column:1/-1"><div class="bk-title-emoji">🤝</div><div class="bk-title-navn bk-title-navn-fairplay">${escHtml(fairPlayLeder?.key ?? '—')}</div><div class="bk-title-label">Fair Play-ordenens leder<br>(flest Fair Play-poeng)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji"><img class="agurk-emoji" src="agurkseddel.png" alt="🥒"></div><div class="bk-title-navn">${escHtml(d.sylteagurk ?? '—')}</div><div class="bk-title-label">Årets sylteagurk<br>(flest bøter)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji">👮</div><div class="bk-title-navn">${escHtml(d.botpoliti ?? '—')}</div><div class="bk-title-label">Årets botpoliti<br>(flest innmeldinger)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji">🙏</div><div class="bk-title-navn">${escHtml(d.nestenHelgen ?? '—')}</div><div class="bk-title-label">Årets nesten-helgen<br>(færrest bøter, blant de skyldige)</div></div>
+      <div class="bk-title-card"><div class="bk-title-emoji">💸</div><div class="bk-title-navn">${escHtml(d.bidragsyter ?? '—')}</div><div class="bk-title-label">Årets bidragsyter<br>(høyest sum)</div></div>
+      <div class="bk-title-card bk-title-card-fairplay" style="grid-column:1/-1"><div class="bk-title-emoji">🤝</div><div class="bk-title-navn bk-title-navn-fairplay">${escHtml(d.fairPlayLeder ?? '—')}</div><div class="bk-title-label">Fair Play-ordenens leder<br>(flest Fair Play-poeng)</div></div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:20px">😂 Årets unnskyldning kåres manuelt av styret ved sesongslutt.</p>
 
@@ -323,11 +348,33 @@ function renderStats() {
     </div></div>
 
     <div class="seksjon-etikett" style="color:var(--green2)">🤝 Fair Play-ordenen</div>
-    <div class="kort bk-kort-fairplay"><div class="kort-innhold">
+    <div class="kort bk-kort-fairplay" style="margin-bottom:24px"><div class="kort-innhold">
       ${fairPlayLiga.length ? fairPlayLiga.map((r,i) => `<div class="bk-liga-rad"><div class="bk-liga-plass">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div class="bk-liga-navn">${escHtml(r.key)}</div><div class="bk-liga-antall bk-liga-antall-fairplay">${r.antall}</div></div>`).join('') : `<div class="tom-tilstand-liten">Ingen Fair Play-poeng ennå.</div>`}
     </div></div>
+
+    <div class="seksjon-etikett">📤 Del sesongoppsummering</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="knapp knapp-primaer" style="flex:1;font-size:18px" id="bk-del-story-btn" onclick="window.botkassaDelSesong('story', this)">Story</button>
+      <button class="knapp knapp-omriss" style="flex:1" id="bk-del-kvadrat-btn" onclick="window.botkassaDelSesong('kvadrat', this)">Kvadrat</button>
+    </div>
+    <p class="bk-liten-tekst" style="text-align:center">🔒 Krever botansvarlig-PIN. Genererer et delbart bilde med årets titler — åpner delemenyen på mobil.</p>
   `;
 }
+
+window.botkassaDelSesong = function(format, btn) {
+  _krevAdmin('Del sesongoppsummering', 'Kun botansvarlig/admin kan dele sesongoppsummeringen.', async () => {
+    const opprinneligTekst = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Genererer …'; }
+    try {
+      await delSesongbilde(beregnSesongData(), format);
+    } catch (e) {
+      console.warn('[Botkassa] delSesongbilde feilet:', e?.message);
+      visMelding('Kunne ikke generere bildet', 'feil');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = opprinneligTekst; }
+    }
+  });
+};
 
 // ════════════════════════════════════════════════════════
 // REGLER
