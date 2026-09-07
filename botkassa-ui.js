@@ -136,8 +136,8 @@ function renderVenterVarsel() {
   badge.textContent = mine.length;
   badge.classList.add('vis');
 
-  const flertall = mine.length === 1 ? 'sak venter' : 'saker venter';
-  tekst.innerHTML = `<strong>${mine.length} ${flertall} på ditt svar</strong><br>før boten avgjøres`;
+  const flertall = mine.length === 1 ? 'Sak til behandling' : `${mine.length} saker til behandling`;
+  tekst.innerHTML = `<strong>${flertall}</strong>`;
   banner.classList.add('vis');
 
   if (navigator.setAppBadge) navigator.setAppBadge(mine.length).catch(() => {});
