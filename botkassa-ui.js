@@ -77,17 +77,64 @@ export async function visBotkassaOversikt() {
     if (avslyttVentende) avslyttVentende();
     avslyttVentende = lyttPaVentende(klubbId, nye => {
       ventende = nye;
+      renderVenterVarsel();
       if (skjermErAktiv('botkassa-svar')) renderSvar();
     });
   } else {
     renderHjemStats();
     renderFeedPreview();
+    renderVenterVarsel();
   }
 }
 
 function skjermErAktiv(navn) {
   return document.getElementById('skjerm-' + navn)?.classList.contains('active');
 }
+
+/**
+ * Henter lokalt lagret "hvem er jeg"-id for aktiv klubb (samme nøkkel som
+ * meld/fairplay/svar-skjermene bruker). Ingen ekte identitet — se
+ * renderVenterVarsel() for hvordan dette brukes til varselet på hjem.
+ */
+function mittIdForKlubb() {
+  const klubbId = _getAktivKlubbId();
+  return klubbId ? localStorage.getItem('bk_mitt_navn_id_' + klubbId) : null;
+}
+
+/**
+ * Regner ut om noe venter på svar fra "meg" (basert på lokalt lagret navn)
+ * og oppdaterer badge på "Venter på deg"-knappen + varselbanneren øverst på
+ * hjem-skjermen. Kjøres hver gang `ventende` oppdateres (Firestore-lytter)
+ * og hver gang "hvem er jeg" endres et sted i appen — DOM-elementene finnes
+ * uansett hvilken skjerm som er aktiv, så det er trygt å kalle denne selv
+ * om hjem-skjermen ikke vises akkurat nå.
+ */
+function renderVenterVarsel() {
+  const badge  = document.getElementById('botkassa-hjem-venter-badge');
+  const banner = document.getElementById('botkassa-hjem-varsel-banner');
+  const tekst  = document.getElementById('botkassa-hjem-varsel-tekst');
+  if (!badge || !banner || !tekst) return;
+
+  const mittId = mittIdForKlubb();
+  const mine = mittId ? ventende.filter(im => im.motSpillere?.some(m => m.id === mittId)) : [];
+
+  if (!mine.length) {
+    badge.classList.remove('vis');
+    banner.classList.remove('vis');
+    if (navigator.clearAppBadge) navigator.clearAppBadge().catch(() => {});
+    return;
+  }
+
+  badge.textContent = mine.length;
+  badge.classList.add('vis');
+
+  const flertall = mine.length === 1 ? 'sak venter' : 'saker venter';
+  tekst.innerHTML = `<strong>${mine.length} ${flertall} på ditt svar</strong><br>før boten avgjøres`;
+  banner.classList.add('vis');
+
+  if (navigator.setAppBadge) navigator.setAppBadge(mine.length).catch(() => {});
+}
+window.botkassaOppdaterHjemVarsel = renderVenterVarsel;
 function lasterHtml(tekst) {
   return `<div class="laster"><span class="laster-snurr"></span> ${escHtml(tekst)}</div>`;
 }
@@ -369,6 +416,7 @@ window.visBotkassaMeld = visBotkassaMeld;
 window.botkassaLagreMittNavn = function(id) {
   const klubbId = _getAktivKlubbId();
   if (klubbId && id) localStorage.setItem('bk_mitt_navn_id_' + klubbId, id);
+  renderVenterVarsel();
 };
 
 window.botkassaToggleSpiller = function(id) {
@@ -524,6 +572,7 @@ window.botkassaSvarByttNavn = function(id) {
   const klubbId = _getAktivKlubbId();
   if (klubbId && id) localStorage.setItem('bk_mitt_navn_id_' + klubbId, id);
   renderSvar();
+  renderVenterVarsel();
 };
 
 function renderSvar() {

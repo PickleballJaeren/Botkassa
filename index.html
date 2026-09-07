@@ -35,6 +35,11 @@
     </div>
   </div>
   <div class="scroll-omrade">
+    <div id="botkassa-hjem-varsel-banner" class="bk-varsel-banner">
+      <span class="bk-varsel-banner-emoji">🚨</span>
+      <div class="bk-varsel-banner-tekst" id="botkassa-hjem-varsel-tekst"></div>
+    </div>
+
     <div class="bk-hero">
       <img src="klubbmerke.png" alt="Pickleball Jæren" class="bk-hero-logo">
       <div class="bk-hero-tittel">BOTKASSA</div>
@@ -58,8 +63,9 @@
       <button class="knapp knapp-omriss" onclick="window.visBotkassaStats?.()">🏆 Statistikk</button>
       <button class="knapp knapp-omriss" onclick="window.visBotkassaRegler?.()">📖 Regler</button>
     </div>
-    <div style="margin-top:8px">
+    <div class="bk-venter-wrap" style="margin-top:8px">
       <button class="knapp knapp-omriss" style="width:100%" onclick="window.visBotkassaSvar?.()">🙋 Venter på deg</button>
+      <span id="botkassa-hjem-venter-badge" class="bk-venter-badge"></span>
     </div>
 
     <div class="seksjon-etikett" style="margin-top:26px">🚨 Siste i feeden</div>
