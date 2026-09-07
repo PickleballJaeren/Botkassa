@@ -126,6 +126,37 @@ export function lyttPaFairPlay(klubbId, callback) {
   );
 }
 
+/**
+ * Henter ALLE innmeldinger en spesifikk spiller selv har sendt inn, uansett
+ * status (venter/godkjent/avvist) — brukes av "Min side" til å vise hva
+ * som skjedde med egne innmeldinger, inkludert avviste (som ellers ikke
+ * vises noe sted, siden en avvist innmelding aldri blir til en bot-post).
+ * Engangsoppslag, ikke en sanntidslytter — trenger ikke leve like lenge
+ * som resten av dataene i appen.
+ *
+ * NB: krever en sammensatt Firestore-indeks (klubbId + meldtAvId + orderBy
+ * opprettet) — samme type indeks som lyttPaVentende allerede bruker.
+ * Første gang denne kjøres uten at indeksen finnes, feiler spørringen med
+ * en feilmelding som inneholder en direkte lenke til å opprette den i
+ * Firebase Console.
+ */
+export async function hentMineInnmeldinger(klubbId, spillerId) {
+  if (!klubbId || !spillerId || !db) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(db, SAM.INNMELDINGER),
+      where('klubbId', '==', klubbId),
+      where('meldtAvId', '==', spillerId),
+      orderBy('opprettet', 'desc'),
+      limit(30),
+    ));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn('[Botkassa] hentMineInnmeldinger:', e?.message);
+    return [];
+  }
+}
+
 // ════════════════════════════════════════════════════════
 // INNMELDING — opprette, avvise, godkjenne
 // ════════════════════════════════════════════════════════

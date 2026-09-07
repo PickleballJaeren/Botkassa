@@ -1,10 +1,10 @@
 # 🥒 Botkassa
 
 Botkasse-app for **Pickleball Jæren** — meld inn bøter, botansvarlig
-godkjenner, feed, statistikk og "Hensikt og regler". Bygget som en
-installerbar PWA med samme design som klubbens andre apper
-(Stafettligaen/Mesteren), og kobler til samme Firebase-prosjekt for å
-bruke den ekte spillerlisten.
+godkjenner, feed, statistikk, «Min side» (personlig saldo og oversikt)
+og "Hensikt og regler". Bygget som en installerbar PWA med samme
+design som klubbens andre apper (Stafettligaen/Mesteren), og kobler
+til samme Firebase-prosjekt for å bruke den ekte spillerlisten.
 
 Appen har også en positiv motvekt til bøtene: **Fair Play-poeng**.
 Alle kan gi hverandre et poeng for fair play, en utrolig prestasjon
@@ -23,6 +23,7 @@ og rangeres i **Fair Play-ordenen** ved siden av Botligaen.
 | `botkassa-logikk.js` | Alt som snakker med Firestore (paragrafer, innmeldinger, bøter, karma, Fair Play-poeng) |
 | `botkassa-ui.js` | Medlemsskjermene: hjem, meld inn bot, meld Fair Play-poeng, feed, statistikk, regler, venter på deg |
 | `botkassa-admin-ui.js` | Botkontroll: godkjenn/avvis/juster, betaling, rediger paragrafer, del appen (QR/lenke), nullstill sesongen |
+| `botkassa-del-sesong.js` | Genererer og deler et delbart PNG-bilde av sesongoppsummeringen ("wrapped") — tegnet med Canvas API, delt via `navigator.share` med nedlasting som reserveløsning |
 | `botkassa.css` | Alle stiler (design-tokens + komponenter) |
 | `manifest.json` | Gjør appen installerbar som PWA |
 | `sw.js` | Service worker — cacher appen for offline-bruk |
@@ -64,6 +65,16 @@ match /botkasseFairPlay/{id} {
 ```
 
 Trykk **Publiser**.
+
+### 1b. Sammensatt indeks for "Min side" (opprettes automatisk ved behov)
+
+"Min side" henter alle egne innmeldinger uansett status, noe som krever
+en sammensatt Firestore-indeks på `botkasseInnmeldinger` (`klubbId` +
+`meldtAvId` + sortering på `opprettet`). Du trenger ikke opprette denne
+manuelt — første gang noen åpner Min side uten at den finnes, feiler
+spørringen med en feilmelding i konsollen som inneholder en direkte
+lenke til å opprette indeksen med ett klikk. Deretter fungerer det for
+alle. (Samme prinsipp som `lyttPaVentende` allerede bruker.)
 
 ### 2. Publiser repoet
 

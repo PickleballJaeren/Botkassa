@@ -13,7 +13,7 @@ import {
   hentSpillere, hentParagrafer, lyttPaBoter, lyttPaVentende, lyttPaFairPlay,
   opprettInnmelding, svarPaInnmelding, likeBot,
   opprettFairPlayPoeng, likeFairPlay, FAIRPLAY_KATEGORIER,
-  topListe, sumListe,
+  topListe, sumListe, hentMineInnmeldinger,
 } from './botkassa-logikk.js';
 import { delSesongbilde } from './botkassa-del-sesong.js';
 
@@ -28,6 +28,7 @@ let paragrafer = [];
 let boter      = [];
 let ventende   = [];
 let fairPlay   = [];
+let mineInnmeldinger = [];
 let valgteSpillereIds   = new Set();
 let valgtParagrafId     = null;
 let valgteSpillereIdsFP = new Set();
@@ -68,6 +69,7 @@ export async function visBotkassaOversikt() {
       renderFeedPreview();
       if (skjermErAktiv('botkassa-feed')) renderFeedFull();
       if (skjermErAktiv('botkassa-stats')) renderStats();
+      if (skjermErAktiv('botkassa-min-side')) renderMinSide();
     });
 
     if (avslyttFairPlay) avslyttFairPlay();
@@ -77,13 +79,14 @@ export async function visBotkassaOversikt() {
       renderFeedPreview();
       if (skjermErAktiv('botkassa-feed')) renderFeedFull();
       if (skjermErAktiv('botkassa-stats')) renderStats();
+      if (skjermErAktiv('botkassa-min-side')) renderMinSide();
     });
 
     if (avslyttVentende) avslyttVentende();
     avslyttVentende = lyttPaVentende(klubbId, nye => {
       ventende = nye;
       renderVenterVarsel();
-      if (skjermErAktiv('botkassa-svar')) renderSvar();
+      if (skjermErAktiv('botkassa-min-side')) renderMinSide();
     });
   } else {
     renderHjemStats();
@@ -597,55 +600,124 @@ window.botkassaSendFairplay = async function() {
 };
 
 // ════════════════════════════════════════════════════════
-// VENTER PÅ DEG — den anklagede kan forklare seg før boten
-// avgjøres. Gjenbruker samme "hvem er du"-lagring (localStorage)
-// som Meld inn bot, siden appen ikke har ekte innlogging.
-// Forklaringen lagres på selve innmeldingen (svarPaInnmelding)
-// og følger med til bot-posten hvis saken godkjennes — da vises
-// den åpent i feeden (se feedKortHtml).
+// MIN SIDE — personlig oversikt: venter på svar, saldo, eget
+// bidrag denne sesongen, sesongtall og status på egne
+// innmeldinger. Gjenbruker samme "hvem er du"-lagring
+// (localStorage) som resten av appen, siden det ikke finnes
+// ekte innlogging.
 // ════════════════════════════════════════════════════════
-export function visBotkassaSvar() {
-  _naviger('botkassa-svar');
+export function visBotkassaMinSide() {
+  _naviger('botkassa-min-side');
   const klubbId = _getAktivKlubbId();
 
-  const navnSelect = document.getElementById('botkassa-svar-mittnavn');
+  const navnSelect = document.getElementById('botkassa-minside-mittnavn');
   navnSelect.innerHTML = `<option value="" disabled selected>Velg deg selv …</option>` +
     spillere.map(s => `<option value="${s.id}">${escHtml(s.navn)}</option>`).join('');
 
   const lagretId = klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId);
   if (lagretId && spillere.some(s => s.id === lagretId)) navnSelect.value = lagretId;
 
-  renderSvar();
+  renderMinSide();
 }
-window.visBotkassaSvar = visBotkassaSvar;
+window.visBotkassaMinSide = visBotkassaMinSide;
 
-window.botkassaSvarByttNavn = function(id) {
+window.botkassaMinSideByttNavn = function(id) {
   const klubbId = _getAktivKlubbId();
   if (klubbId && id) localStorage.setItem('bk_mitt_navn_id_' + klubbId, id);
-  renderSvar();
   renderVenterVarsel();
+  renderMinSide();
 };
 
-function renderSvar() {
-  const el = document.getElementById('botkassa-svar-innhold');
+function statusBadgeHtml(status) {
+  if (status === 'godkjent') return `<span style="font-size:11px;color:var(--green2);background:rgba(22,163,74,.15);border-radius:20px;padding:2px 8px;flex-shrink:0">Godkjent</span>`;
+  if (status === 'avvist')   return `<span style="font-size:11px;color:var(--red2);background:rgba(220,38,38,.15);border-radius:20px;padding:2px 8px;flex-shrink:0">Avvist</span>`;
+  return `<span style="font-size:11px;color:var(--yellow);background:rgba(234,179,8,.15);border-radius:20px;padding:2px 8px;flex-shrink:0">Venter</span>`;
+}
+
+function innmeldingRadHtml(im) {
+  const flereMot = im.motSpillere?.length > 1
+    ? ` <span class="bk-liten-tekst">(${im.motSpillere.map(m => escHtml(m.navn)).join(', ')})</span>` : '';
+  return `<div class="bk-rad-mellom" style="background:var(--navy2);border-radius:10px;padding:9px 12px;margin-bottom:6px;gap:8px">
+    <span style="font-size:14px">${escHtml(im.paragrafTittel)}${flereMot}</span>
+    ${statusBadgeHtml(im.status)}
+  </div>`;
+}
+
+/**
+ * Kort for en innmelding som venter på svar fra "meg" — samme funksjon
+ * som den gamle "Venter på deg"-skjermen hadde, bare flyttet inn i Min
+ * side. Svar-boksen er kollapset til den trykkes på, eller vises åpen
+ * med en gang hvis man allerede har svart (så man ser hva man skrev).
+ */
+function venterKortHtml(im, mittId) {
+  const eksisterende = im.svar?.[mittId]?.tekst || '';
+  return `<div class="bk-admin-card" style="border-color:rgba(220,38,38,.35);background:rgba(220,38,38,.06);margin-bottom:12px">
+    <div class="bk-feed-paragraf">🚨 ${escHtml(im.paragrafTittel)}${im.foreslattBelop ? ' · foreslått ' + im.foreslattBelop + ' kr' : ''}</div>
+    ${im.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(im.kommentar)}» — ${escHtml(im.meldtAvNavn)}</div>` : ''}
+    <button class="knapp knapp-fare knapp-liten" style="margin-top:8px" onclick="window.botkassaVisSvarBoks('${im.id}')">${eksisterende ? 'Vis/rediger svar' : 'Svar'}</button>
+    <div id="bk-svarboks-${im.id}" style="display:${eksisterende ? 'flex' : 'none'};flex-direction:column;gap:8px;margin-top:10px">
+      <label style="margin:0">Din forklaring (valgfritt — blir synlig i feeden hvis boten godkjennes)</label>
+      <textarea id="bk-svar-${im.id}" placeholder="F.eks. «Jeg trodde egentlig at …»">${escHtml(eksisterende)}</textarea>
+      <button class="knapp knapp-primaer knapp-liten" onclick="window.botkassaSendSvar('${im.id}','${mittId}')">${eksisterende ? 'Oppdater forklaring' : 'Send forklaring'}</button>
+    </div>
+  </div>`;
+}
+window.botkassaVisSvarBoks = function(id) {
+  const boks = document.getElementById('bk-svarboks-' + id);
+  if (boks) boks.style.display = boks.style.display === 'none' ? 'flex' : 'none';
+};
+
+async function renderMinSide() {
+  const el = document.getElementById('botkassa-minside-innhold');
   const klubbId = _getAktivKlubbId();
   const mittId  = klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId);
 
-  if (!mittId) { el.innerHTML = `<div class="tom-tilstand-liten">Velg deg selv over for å se om noe venter på deg.</div>`; return; }
+  if (!mittId) { el.innerHTML = `<div class="tom-tilstand-liten">Velg deg selv over for å se din side.</div>`; return; }
 
-  const mine = ventende.filter(im => im.motSpillere?.some(m => m.id === mittId));
-  if (!mine.length) { el.innerHTML = `<div class="tom-tilstand">Ingenting venter på deg akkurat nå. 🎉</div>`; return; }
+  el.innerHTML = lasterHtml('Henter din oversikt …');
 
-  el.innerHTML = mine.map(im => {
-    const eksisterende = im.svar?.[mittId]?.tekst || '';
-    return `<div class="bk-admin-card">
-      <div class="bk-feed-paragraf">${escHtml(im.paragrafTittel)}${im.foreslattBelop ? ' · foreslått ' + im.foreslattBelop + ' kr' : ''}</div>
-      ${im.kommentar ? `<div class="bk-feed-kommentar">«${escHtml(im.kommentar)}» — ${escHtml(im.meldtAvNavn)}</div>` : ''}
-      <label style="margin-top:10px">Din forklaring (valgfritt — blir synlig i feeden hvis boten godkjennes)</label>
-      <textarea id="bk-svar-${im.id}" placeholder="F.eks. «Jeg trodde egentlig at …»">${escHtml(eksisterende)}</textarea>
-      <button class="knapp knapp-primaer knapp-liten" style="margin-top:8px" onclick="window.botkassaSendSvar('${im.id}','${mittId}')">${eksisterende ? 'Oppdater forklaring' : 'Send forklaring'}</button>
-    </div>`;
-  }).join('');
+  const mineBoter    = boter.filter(b => b.spillerId === mittId);
+  const mineFairPlay = fairPlay.filter(f => f.spillerId === mittId);
+  const mineVentende = ventende.filter(im => im.motSpillere?.some(m => m.id === mittId));
+  const saldo        = mineBoter.filter(b => !b.betalt).reduce((s,b) => s + (b.belop||0), 0);
+  const bidrag       = mineBoter.filter(b =>  b.betalt).reduce((s,b) => s + (b.belop||0), 0);
+
+  mineInnmeldinger = await hentMineInnmeldinger(klubbId, mittId);
+
+  // Beskytter mot at brukeren rekker å bytte "hvem er jeg" mens Firestore-
+  // oppslaget over var underveis — da skal ikke det gamle svaret vises.
+  if (mittId !== (klubbId && localStorage.getItem('bk_mitt_navn_id_' + klubbId))) return;
+
+  el.innerHTML = `
+    ${mineVentende.map(im => venterKortHtml(im, mittId)).join('')}
+
+    ${mineBoter.length ? `
+      <div class="bk-stat-tile full bk-stat-tile-saldo" style="margin-bottom:10px">
+        <div>
+          <span class="bk-stat-label bk-stat-value-saldo" style="margin:0">DIN SALDO</span>
+          <div class="bk-liten-tekst">${mineBoter.filter(b=>!b.betalt).length} ubetalte bøter</div>
+        </div>
+        <span class="bk-stat-value-saldo">${saldo.toLocaleString('nb-NO')} kr</span>
+      </div>
+      <div class="bk-stat-tile full bk-stat-tile-fairplay" style="margin-bottom:20px">
+        <div>
+          <span class="bk-stat-label bk-stat-value-fairplay" style="margin:0">DITT BIDRAG DENNE SESONGEN</span>
+          <div class="bk-liten-tekst">Går til sosiale formål i klubben</div>
+        </div>
+        <span class="bk-stat-value-fairplay">${bidrag.toLocaleString('nb-NO')} kr</span>
+      </div>
+    ` : `<div class="tom-tilstand-liten" style="margin-bottom:20px">Ingen bøter registrert på deg ennå. 🎉</div>`}
+
+    <div class="seksjon-etikett">Denne sesongen</div>
+    <div class="bk-stat-grid" style="margin-bottom:20px">
+      <div class="bk-stat-tile"><div class="bk-stat-value">${mineBoter.length}</div><div class="bk-stat-label">🚨 Bøter</div></div>
+      <div class="bk-stat-tile bk-stat-tile-fairplay"><div class="bk-stat-value bk-stat-value-fairplay">${mineFairPlay.length}</div><div class="bk-stat-label">🤝 Fair Play mottatt</div></div>
+      <div class="bk-stat-tile full"><span class="bk-stat-label" style="margin:0">👮 Meldt inn av deg</span><span class="bk-stat-value">${mineInnmeldinger.length}</span></div>
+    </div>
+
+    <div class="seksjon-etikett">Dine innmeldinger</div>
+    ${mineInnmeldinger.length ? mineInnmeldinger.map(innmeldingRadHtml).join('') : `<div class="tom-tilstand-liten">Du har ikke meldt inn noen ennå.</div>`}
+  `;
 }
 
 window.botkassaSendSvar = async function(innmeldingId, spillerId) {

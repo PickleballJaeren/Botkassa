@@ -187,6 +187,8 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-paragraf-item-fairplay.valgt{border-color:var(--green);background:rgba(22,163,74,.12)}
 .bk-stat-tile-fairplay{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.35)}
 .bk-stat-value-fairplay{color:var(--green2);font-family:'DM Mono',monospace;font-size:19px;font-weight:700}
+.bk-stat-tile-saldo{background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.35)}
+.bk-stat-value-saldo{color:var(--yellow);font-family:'DM Mono',monospace;font-size:19px;font-weight:700}
 .bk-title-card-fairplay{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.4)}
 .bk-title-navn-fairplay{color:var(--green2)}
 .bk-kort-fairplay{border-color:rgba(22,163,74,.25)}
