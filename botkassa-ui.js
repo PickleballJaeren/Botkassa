@@ -21,6 +21,7 @@ let _naviger        = () => {};
 let _getAktivKlubbId = () => null;
 let _klubbNavn       = '';
 let _krevAdmin       = (tittel, tekst, cb) => cb();
+let _getErAdmin      = () => false;
 
 let spillere   = [];
 let paragrafer = [];
@@ -36,11 +37,12 @@ let avslyttVentende = null;
 let avslyttFairPlay = null;
 let lastetForKlubb = null;
 
-export function botkassaUIInit({ naviger, getAktivKlubbId, getKlubbNavn, krevAdmin }) {
+export function botkassaUIInit({ naviger, getAktivKlubbId, getKlubbNavn, krevAdmin, getErAdmin }) {
   _naviger = naviger;
   _getAktivKlubbId = getAktivKlubbId;
   _klubbNavn = getKlubbNavn ?? (() => '');
   if (krevAdmin) _krevAdmin = krevAdmin;
+  if (getErAdmin) _getErAdmin = getErAdmin;
 }
 
 /** Kalles fra "Åpne Botkassa"-knappen på hjem-skjermen. */
@@ -352,12 +354,14 @@ function renderStats() {
       ${fairPlayLiga.length ? fairPlayLiga.map((r,i) => `<div class="bk-liga-rad"><div class="bk-liga-plass">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div class="bk-liga-navn">${escHtml(r.key)}</div><div class="bk-liga-antall bk-liga-antall-fairplay">${r.antall}</div></div>`).join('') : `<div class="tom-tilstand-liten">Ingen Fair Play-poeng ennå.</div>`}
     </div></div>
 
-    <div class="seksjon-etikett">📤 Del sesongoppsummering</div>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="knapp knapp-primaer" style="flex:1;font-size:18px" id="bk-del-story-btn" onclick="window.botkassaDelSesong('story', this)">Story</button>
-      <button class="knapp knapp-omriss" style="flex:1" id="bk-del-kvadrat-btn" onclick="window.botkassaDelSesong('kvadrat', this)">Kvadrat</button>
-    </div>
-    <p class="bk-liten-tekst" style="text-align:center">🔒 Krever botansvarlig-PIN. Genererer et delbart bilde med årets titler — åpner delemenyen på mobil.</p>
+    ${_getErAdmin() ? `
+      <div class="seksjon-etikett">📤 Del sesongoppsummering</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="knapp knapp-primaer" style="flex:1;font-size:18px" id="bk-del-story-btn" onclick="window.botkassaDelSesong('story', this)">Story</button>
+        <button class="knapp knapp-omriss" style="flex:1" id="bk-del-kvadrat-btn" onclick="window.botkassaDelSesong('kvadrat', this)">Kvadrat</button>
+      </div>
+      <p class="bk-liten-tekst" style="text-align:center">Kun synlig for admin. Genererer et delbart bilde med årets titler — åpner delemenyen på mobil.</p>
+    ` : ''}
   `;
 }
 

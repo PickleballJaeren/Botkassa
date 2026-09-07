@@ -49,6 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
     naviger,
     getAktivKlubbId: () => AKTIV_KLUBB_ID,
     getKlubbNavn: () => AKTIV_KLUBB.navn,
+    krevAdmin: krevAdminMedDemo,
+    getErAdmin,
   });
   botkassaAdminUIInit({
     naviger,
