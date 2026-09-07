@@ -107,22 +107,22 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .bk-stat-tile{background:var(--navy2);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center}
 .bk-stat-value{font-family:'DM Mono',monospace;font-size:21px;font-weight:700;color:var(--white)}
-.bk-stat-label{font-size:12px;color:var(--muted2);margin-top:3px;line-height:1.3}
+.bk-stat-label{font-size:13px;color:var(--muted2);margin-top:3px;line-height:1.3}
 .bk-stat-tile.full{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:14px 16px}
 
 .bk-feed-card{background:var(--navy2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .bk-feed-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
 .bk-feed-navn{font-weight:700;font-size:18px}
 .bk-feed-belop{font-family:'DM Mono',monospace;font-weight:700;color:var(--yellow);font-size:19px;flex-shrink:0}
-.bk-feed-paragraf{font-size:13px;color:var(--accent2);margin-bottom:8px}
+.bk-feed-paragraf{font-size:14px;color:var(--accent2);margin-bottom:8px}
 .bk-feed-kommentar{font-size:15px;color:var(--muted2);font-style:italic;line-height:1.4;margin-bottom:10px}
 .bk-feed-forklaring{font-size:15px;color:var(--accent2);font-style:italic;line-height:1.4;margin-bottom:10px}
 .bk-feed-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
-.bk-feed-meldtav{font-size:13px;color:var(--muted)}
+.bk-feed-meldtav{font-size:14px;color:var(--muted)}
 .bk-like-btn{background:none;border:1px solid var(--border2);border-radius:20px;padding:5px 12px;color:var(--muted2);font-size:14px;cursor:pointer}
 .bk-like-btn:active{transform:scale(.94)}
 .bk-like-btn.likt{background:rgba(37,99,235,.15);border-color:var(--accent2);color:var(--accent2);font-weight:700}
-.bk-karma-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(220,38,38,.15);color:var(--red2);font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:6px;letter-spacing:.3px}
+.bk-karma-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(220,38,38,.15);color:var(--red2);font-size:13px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:6px;letter-spacing:.3px}
 
 .bk-paragraf-item{display:flex;align-items:center;gap:12px;background:#060e1c;border:1px solid var(--border2);border-radius:12px;padding:12px 14px;cursor:pointer;transition:border-color .15s;margin-bottom:8px}
 .bk-paragraf-item.valgt{border-color:var(--accent);background:rgba(37,99,235,.12)}
@@ -151,7 +151,7 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-title-card{background:var(--navy2);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center}
 .bk-title-emoji{font-size:24px}
 .bk-title-navn{font-family:'Bebas Neue',cursive;font-size:20px;color:var(--yellow);margin-top:4px}
-.bk-title-label{font-size:12px;color:var(--muted2);margin-top:2px;line-height:1.3}
+.bk-title-label{font-size:13px;color:var(--muted2);margin-top:2px;line-height:1.3}
 
 .bk-liga-rad{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--border)}
 .bk-liga-rad:last-child{border-bottom:none}
@@ -167,7 +167,7 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 
 .bk-verkty-notis{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--yellow);margin-bottom:14px;line-height:1.4}
 .bk-rad-mellom{display:flex;justify-content:space-between;align-items:center;padding:8px 0}
-.bk-liten-tekst{font-size:13px;color:var(--muted)}
+.bk-liten-tekst{font-size:14px;color:var(--muted)}
 .agurk-emoji{height:1em;width:auto;vertical-align:-0.15em;border-radius:2px;display:inline-block}
 
 /* ── VARSEL — badge og banner for «Venter på deg» ── */
@@ -177,12 +177,12 @@ label{font-size:15px;color:var(--muted2);display:block;margin-bottom:4px}
 .bk-varsel-banner-tekst{font-size:14px;color:#fca5a5;line-height:1.4}
 .bk-varsel-banner-tekst strong{color:#fecaca;font-weight:700}
 .bk-venter-wrap{position:relative}
-.bk-venter-badge{display:none;position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 8px rgba(220,38,38,.5)}
+.bk-venter-badge{display:none;position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;font-size:13px;font-weight:700;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 8px rgba(220,38,38,.5)}
 .bk-venter-badge.vis{display:flex}
 
 /* ── FAIR PLAY-POENG — grønn motvekt til bøtene ── */
 .bk-feed-card-fairplay{border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.06)}
-.bk-fairplay-badge{background:rgba(22,163,74,.18);color:var(--green2);font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.3px;flex-shrink:0}
+.bk-fairplay-badge{background:rgba(22,163,74,.18);color:var(--green2);font-size:13px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.3px;flex-shrink:0}
 .bk-feed-paragraf-fairplay{color:var(--green2)}
 .bk-paragraf-item-fairplay.valgt{border-color:var(--green);background:rgba(22,163,74,.12)}
 .bk-stat-tile-fairplay{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.35)}
