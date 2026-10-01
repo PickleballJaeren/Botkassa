@@ -2,14 +2,14 @@
 // firebase.js — Firebase-oppsett og delte samlingsreferanser
 //
 // Bruker SAMME Firebase-prosjekt som klubbens andre apper
-// (Stafettligaen/Mesteren), slik at Botkassa kan lese den
+// (Stafettligaen/Mesteren), slik at Botkassen kan lese den
 // ekte, delte spillerlisten fra "players"-samlingen.
 // ════════════════════════════════════════════════════════
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
   getFirestore, collection, doc, addDoc, updateDoc, setDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove,
+  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove, runTransaction,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FB_CONFIG = {
@@ -33,5 +33,5 @@ export { db };
 export {
   collection, doc, addDoc, updateDoc, setDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove,
+  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove, runTransaction,
 };

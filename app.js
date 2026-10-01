@@ -1,43 +1,45 @@
 // ════════════════════════════════════════════════════════
 // app.js — Oppstart og modulkobling
-// Botkassa — dedikert app for Pickleball Jæren.
+// Botkassen — dedikert app for Pickleball Jæren.
 // ════════════════════════════════════════════════════════
 import { db } from './firebase.js';
-import { naviger, visMelding, visFBFeil, registrerBeforeunload } from './ui.js';
+import { naviger, visMelding, visFBFeil } from './ui.js';
 import {
   registrerPinGetter, registrerKlubbIdGetter,
-  krevAdmin as krevAdminBase,
-  getErAdmin, gjenopprettAdminStatus,
-  pinInput, bekreftPin, lukkPinModal,
+  krevAdmin, getErAdmin, nullstillAdmin, gjenopprettAdminStatus,
 } from './admin.js';
 import { botkassaUIInit, visBotkassaOversikt } from './botkassa-ui.js';
 import { botkassaAdminUIInit } from './botkassa-admin-ui.js';
 
-// Eksponer PIN-modal-funksjonene globalt (kalles fra inline onclick i index.html)
-window.pinInput     = pinInput;
-window.bekreftPin   = bekreftPin;
-window.lukkPinModal = lukkPinModal;
-window.visBotkassaOversikt = visBotkassaOversikt;
-
 // ════════════════════════════════════════════════════════
 // KLUBB — appen er dedikert til Pickleball Jæren.
-// Samme PIN som resten av klubbens apper (Stafettligaen/Mesteren).
+// NB: PIN-en sjekkes kun i nettleseren og er synlig for alle som
+// leser kildekoden. Den hindrer uhell, ikke målrettet juks.
 // ════════════════════════════════════════════════════════
 const AKTIV_KLUBB_ID = 'pickleball-jaeren';
 const AKTIV_KLUBB    = { navn: 'Pickleball Jæren', pin: '9436' };
 
-function krevAdminMedDemo(tittel, tekst, callback) {
-  krevAdminBase(tittel, tekst, callback, false);
-}
-window.krevAdmin = krevAdminMedDemo;
+window.krevAdmin  = krevAdmin;
 window.getErAdmin = getErAdmin;
+window.visBotkassaOversikt = visBotkassaOversikt;
 
-// ════════════════════════════════════════════════════════
-// OPPSTART
-// ════════════════════════════════════════════════════════
+window.botkassaLoggUt = function() {
+  nullstillAdmin();
+  visMelding('Logget ut av Botkontroll');
+  visBotkassaOversikt();
+};
+
+// Elementer med role="checkbox"/"radio"/"tab" og onclick skal også kunne
+// brukes med tastatur (Enter/mellomrom), ikke bare trykk/klikk.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target.closest?.('[role="checkbox"],[role="radio"],[role="tab"]');
+  if (el) { e.preventDefault(); el.click(); }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!db) {
-    visFBFeil('Firebase er ikke konfigurert. Sjekk FB_CONFIG i firebase.js.');
+    visFBFeil('Får ikke kontakt med databasen. Sjekk nettforbindelsen og last siden på nytt.');
     return;
   }
 
@@ -49,17 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
     naviger,
     getAktivKlubbId: () => AKTIV_KLUBB_ID,
     getKlubbNavn: () => AKTIV_KLUBB.navn,
-    krevAdmin: krevAdminMedDemo,
+    krevAdmin,
     getErAdmin,
   });
   botkassaAdminUIInit({
     naviger,
-    krevAdmin: krevAdminMedDemo,
+    krevAdmin,
     getAktivKlubbId: () => AKTIV_KLUBB_ID,
   });
 
-  registrerBeforeunload(() => false);
-
-  naviger('botkassa-hjem');
   visBotkassaOversikt();
 });

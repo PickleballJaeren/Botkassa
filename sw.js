@@ -1,10 +1,10 @@
 // ════════════════════════════════════════════════════════
-// sw.js — Service Worker for Botkassa
+// sw.js — Service Worker for Botkassen
 // Cache-shell strategi, network-first for alt lokalt innhold,
 // Firebase/Firestore går alltid direkte til nett.
 // ════════════════════════════════════════════════════════
-const VERSJON    = 17;
-const CACHE_NAVN = `botkassa-v${VERSJON}`;
+const VERSJON    = 18;
+const CACHE_NAVN = `botkassen-v${VERSJON}`;
 
 const SHELL = [
   './',
@@ -15,6 +15,7 @@ const SHELL = [
   './ui.js',
   './admin.js',
   './botkassa-logikk.js',
+  './botkassa-data.js',
   './botkassa-ui.js',
   './botkassa-admin-ui.js',
   './botkassa-del-sesong.js',
@@ -42,21 +43,22 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Bare GET fra vår egen opprinnelse caches. Alt annet (Firebase, fonter,
+  // QR-tjenesten osv.) går rett til nett uten at service workeren blander seg inn.
+  if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  const erEkstern = url.hostname.includes('firebase') || url.hostname.includes('firestore')
-    || url.hostname.includes('googleapis') || url.hostname.includes('gstatic') || url.hostname.includes('fonts.g');
-
-  if (erEkstern) { e.respondWith(fetch(e.request)); return; }
+  if (url.origin !== self.location.origin) return;
 
   e.respondWith(
     fetch(e.request).then(response => {
-      if (e.request.method === 'GET' && response.status === 200) {
+      if (response.status === 200) {
         const kopi = response.clone();
         caches.open(CACHE_NAVN).then(cache => cache.put(e.request, kopi));
       }
       return response;
     }).catch(() =>
-      caches.match(e.request, { ignoreSearch: true }).then(cached => cached ?? caches.match('./index.html'))
+      caches.match(e.request, { ignoreSearch: true }).then(cached =>
+        cached ?? (e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
     )
   );
 });

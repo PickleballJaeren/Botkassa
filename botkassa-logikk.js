@@ -1,21 +1,23 @@
 // ════════════════════════════════════════════════════════
-// botkassa-logikk.js — Firestore-lag for Botkassa
+// botkassa-logikk.js — Firestore-lag for Botkassen
 //
-// Egne samlinger (må legges til i firestore.rules, se
-// botkassa-firestore-regler.txt):
+// Samlinger (må finnes i firestore.rules, se README):
 //   botkasseParagrafer/{klubbId}   — redigerbar §3-liste per klubb
 //   botkasseInnmeldinger/{id}      — meldinger som venter på godkjenning
 //   botkasseBoter/{id}             — godkjente, gjeldende bøter
+//   botkasseFairPlay/{id}          — Fair Play-poeng
 //
-// Leser spillernavn fra SAMME players-samling som resten av
-// appen (samme spørringsmønster som hentSpillere() i
-// stafettliga.js/proven.js — bevisst en egen kopi her, samme
-// filosofi som resten av kodebasen: hver app-modul er selvstendig).
+// Leser spillernavn fra den delte players-samlingen som klubbens
+// andre apper også bruker.
+//
+// NB: samlingsnavnene beholder "botkasse"-prefikset selv om appen
+// nå heter Botkassen — å endre dem ville gjort eksisterende data
+// usynlig.
 // ════════════════════════════════════════════════════════
 import {
-  db, collection, doc, addDoc, updateDoc, setDoc, deleteDoc, getDoc, getDocs,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp, increment, writeBatch,
-  arrayUnion, arrayRemove,
+  db, collection, doc, addDoc, updateDoc, setDoc, getDocs,
+  query, where, orderBy, onSnapshot, serverTimestamp, increment, writeBatch,
+  arrayUnion, arrayRemove, runTransaction,
 } from './firebase.js';
 
 const SAM = {
@@ -27,7 +29,22 @@ const SAM = {
 };
 
 // ════════════════════════════════════════════════════════
-// STANDARD-PARAGRAFER — brukes til en klubb har lagret sine
+// BØTEGRENSER — én kilde til sannhet for hele appen.
+// En vanlig hendelse kan maks gi MAKS_BOT. Karma dobler, men
+// aldri over MAKS_BOT_KARMA.
+// ════════════════════════════════════════════════════════
+export const MAKS_BOT       = 50;
+export const MAKS_BOT_KARMA = 100;
+
+export class AlleredeBehandletFeil extends Error {
+  constructor() { super('Innmeldingen er allerede behandlet'); this.name = 'AlleredeBehandletFeil'; }
+}
+export class UgyldigBelopFeil extends Error {
+  constructor() { super(`Beløpet må være mellom 1 og ${MAKS_BOT} kr`); this.name = 'UgyldigBelopFeil'; }
+}
+
+// ════════════════════════════════════════════════════════
+// STANDARD-PARAGRAFER — brukes til klubben har lagret sine
 // egne (via lagreParagrafer). Basert på klubbens §3-reglement.
 // ════════════════════════════════════════════════════════
 export const DEFAULT_PARAGRAFER = [
@@ -39,14 +56,33 @@ export const DEFAULT_PARAGRAFER = [
   { id:'p6',  num:6,  emoji:'👀', tittel:'Uærlig balldømming',                    belop:20, skjonn:false },
   { id:'p7',  num:7,  emoji:'📝', tittel:'Feil resultatregistrering (lagstraff)', belop:20, skjonn:false, lagstraff:true },
   { id:'p8',  num:8,  emoji:'🏓', tittel:'Skylde på makkeren etter tap',          belop:20, skjonn:false },
-  { id:'p9',  num:9,  emoji:'⚖️', tittel:'For stor seiersmargin i sosialspill',   belop:0,  skjonn:true,  skjonnMin:0,  skjonnMax:100, ingenFast:true },
+  { id:'p9',  num:9,  emoji:'⚖️', tittel:'For stor seiersmargin i sosialspill',   belop:0,  skjonn:true,  skjonnMin:0,  skjonnMax:50, ingenFast:true },
   { id:'p10', num:10, emoji:'🚨', tittel:'Botpoliti (overivrig tysting)',         belop:20, skjonn:false },
 ];
 
+/**
+ * Sørger for at en paragraf aldri kan gi mer enn MAKS_BOT, også om
+ * den ble lagret i Firestore før grensen kom (tidligere var maks 100).
+ */
+export function normaliserParagraf(p) {
+  const klem = v => Math.max(0, Math.min(MAKS_BOT, Number(v) || 0));
+  const ut = { ...p, belop: klem(p.belop) };
+  if (p.skjonn) {
+    ut.skjonnMax = klem(p.skjonnMax ?? MAKS_BOT);
+    ut.skjonnMin = Math.min(klem(p.skjonnMin ?? 0), ut.skjonnMax);
+    if (!p.ingenFast) ut.belop = Math.min(Math.max(ut.belop, ut.skjonnMin), ut.skjonnMax);
+  }
+  return ut;
+}
+
+/** Tekst som beskriver beløpet til en paragraf, f.eks. «20 kr» eller «20–50 kr». */
+export function belopTekst(p) {
+  if (p.ingenFast || p.skjonn) return `${p.skjonnMin}–${p.skjonnMax} kr`;
+  return `${p.belop} kr`;
+}
+
 // ════════════════════════════════════════════════════════
-// FAIR PLAY-KATEGORIER — faste, ikke redigerbare (i motsetning
-// til paragrafene). Fair Play-poeng har ingen kroneverdi og
-// ingen godkjenningssteg, så det er ingenting å konfigurere.
+// FAIR PLAY-KATEGORIER — faste, ikke redigerbare.
 // ════════════════════════════════════════════════════════
 export const FAIRPLAY_KATEGORIER = [
   { id:'fp1', emoji:'🤝', tittel:'Fair play' },
@@ -67,7 +103,7 @@ export async function hentSpillere(klubbId) {
     ));
     return snap.docs.map(d => ({ id: d.id, navn: d.data().navn ?? '?' }));
   } catch (e) {
-    console.warn('[Botkassa] hentSpillere:', e?.message);
+    console.warn('[Botkassen] hentSpillere:', e?.message);
     return [];
   }
 }
@@ -75,33 +111,38 @@ export async function hentSpillere(klubbId) {
 // ════════════════════════════════════════════════════════
 // PARAGRAFER
 // ════════════════════════════════════════════════════════
-export async function hentParagrafer(klubbId) {
-  try {
-    const snap = await getDoc(doc(db, SAM.PARAGRAFER, klubbId));
-    if (snap.exists() && Array.isArray(snap.data().paragrafer) && snap.data().paragrafer.length) {
-      return snap.data().paragrafer;
-    }
-  } catch (e) {
-    console.warn('[Botkassa] hentParagrafer, bruker standard:', e?.message);
-  }
-  return DEFAULT_PARAGRAFER;
-}
-
 export async function lagreParagrafer(klubbId, paragrafer) {
   await setDoc(doc(db, SAM.PARAGRAFER, klubbId), {
-    paragrafer,
+    paragrafer: paragrafer.map(normaliserParagraf),
     oppdatert: serverTimestamp(),
   });
 }
 
 // ════════════════════════════════════════════════════════
-// REALTIME-LYTTERE — returnerer unsubscribe-funksjon
+// REALTIME-LYTTERE — returnerer unsubscribe-funksjon.
+// Ingen limit() på bøter/Fair Play: statistikk, saldo og
+// botligaen må regnes ut fra HELE sesongen. Nullstill ved
+// sesongstart holder mengden nede.
 // ════════════════════════════════════════════════════════
+export function lyttPaParagrafer(klubbId, callback) {
+  const standard = () => DEFAULT_PARAGRAFER.map(normaliserParagraf);
+  return onSnapshot(
+    doc(db, SAM.PARAGRAFER, klubbId),
+    snap => {
+      const liste = snap.exists() && Array.isArray(snap.data().paragrafer) && snap.data().paragrafer.length
+        ? snap.data().paragrafer.map(normaliserParagraf)
+        : standard();
+      callback(liste);
+    },
+    err => { console.warn('[Botkassen] lyttPaParagrafer, bruker standard:', err?.message); callback(standard()); },
+  );
+}
+
 export function lyttPaBoter(klubbId, callback) {
   return onSnapshot(
-    query(collection(db, SAM.BOTER), where('klubbId','==',klubbId), orderBy('opprettet','desc'), limit(200)),
+    query(collection(db, SAM.BOTER), where('klubbId','==',klubbId), orderBy('opprettet','desc')),
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => console.warn('[Botkassa] lyttPaBoter:', err?.message),
+    err => console.warn('[Botkassen] lyttPaBoter:', err?.message),
   );
 }
 
@@ -114,31 +155,23 @@ export function lyttPaVentende(klubbId, callback) {
       orderBy('opprettet','asc'),
     ),
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => console.warn('[Botkassa] lyttPaVentende:', err?.message),
+    err => console.warn('[Botkassen] lyttPaVentende:', err?.message),
   );
 }
 
 export function lyttPaFairPlay(klubbId, callback) {
   return onSnapshot(
-    query(collection(db, SAM.FAIRPLAY), where('klubbId','==',klubbId), orderBy('opprettet','desc'), limit(200)),
+    query(collection(db, SAM.FAIRPLAY), where('klubbId','==',klubbId), orderBy('opprettet','desc')),
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => console.warn('[Botkassa] lyttPaFairPlay:', err?.message),
+    err => console.warn('[Botkassen] lyttPaFairPlay:', err?.message),
   );
 }
 
 /**
- * Henter ALLE innmeldinger en spesifikk spiller selv har sendt inn, uansett
- * status (venter/godkjent/avvist) — brukes av "Min side" til å vise hva
- * som skjedde med egne innmeldinger, inkludert avviste (som ellers ikke
- * vises noe sted, siden en avvist innmelding aldri blir til en bot-post).
- * Engangsoppslag, ikke en sanntidslytter — trenger ikke leve like lenge
- * som resten av dataene i appen.
- *
- * NB: krever en sammensatt Firestore-indeks (klubbId + meldtAvId + orderBy
- * opprettet) — samme type indeks som lyttPaVentende allerede bruker.
- * Første gang denne kjøres uten at indeksen finnes, feiler spørringen med
- * en feilmelding som inneholder en direkte lenke til å opprette den i
- * Firebase Console.
+ * Henter alle innmeldinger en spiller selv har sendt inn, uansett status.
+ * Krever en sammensatt indeks (klubbId + meldtAvId + opprettet) — første
+ * kjøring uten indeks gir en feilmelding i konsollen med lenke for å
+ * opprette den.
  */
 export async function hentMineInnmeldinger(klubbId, spillerId) {
   if (!klubbId || !spillerId || !db) return [];
@@ -148,17 +181,16 @@ export async function hentMineInnmeldinger(klubbId, spillerId) {
       where('klubbId', '==', klubbId),
       where('meldtAvId', '==', spillerId),
       orderBy('opprettet', 'desc'),
-      limit(30),
     ));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
-    console.warn('[Botkassa] hentMineInnmeldinger:', e?.message);
+    console.warn('[Botkassen] hentMineInnmeldinger:', e?.message);
     return [];
   }
 }
 
 // ════════════════════════════════════════════════════════
-// INNMELDING — opprette, avvise, godkjenne
+// INNMELDING — opprette, svare, avvise, godkjenne
 // ════════════════════════════════════════════════════════
 export async function opprettInnmelding({ klubbId, meldtAvId, meldtAvNavn, motSpillere, paragrafId, paragrafTittel, foreslattBelop, kommentar }) {
   await addDoc(collection(db, SAM.INNMELDINGER), {
@@ -166,27 +198,16 @@ export async function opprettInnmelding({ klubbId, meldtAvId, meldtAvNavn, motSp
     meldtAvId, meldtAvNavn,
     motSpillere,                 // [{id, navn}]
     paragrafId, paragrafTittel,
-    foreslattBelop,
+    foreslattBelop: Math.min(Number(foreslattBelop) || 0, MAKS_BOT),
     kommentar: kommentar || '',
     status: 'venter',
     opprettet: serverTimestamp(),
   });
 }
 
-export async function avvisInnmelding(innmeldingId, behandletAvNavn) {
-  await updateDoc(doc(db, SAM.INNMELDINGER, innmeldingId), {
-    status: 'avvist',
-    behandletAvNavn,
-    behandletTidspunkt: serverTimestamp(),
-  });
-}
-
 /**
- * Lagrer en anklagets forklaring/unnskyldning på en ventende innmelding, én
- * per spiller (siden en innmelding kan gjelde flere ved lagstraff). Kan
- * kalles på nytt for å redigere svaret så lenge saken ikke er avgjort.
- * Forklaringen følger med til selve bot-posten hvis/når saken godkjennes
- * (se godkjennInnmelding), og vises da åpent i feeden.
+ * Lagrer en anklagets forklaring på en ventende innmelding, én per spiller.
+ * Følger med til bot-posten hvis saken godkjennes.
  */
 export async function svarPaInnmelding(innmeldingId, spillerId, tekst) {
   await updateDoc(doc(db, SAM.INNMELDINGER, innmeldingId), {
@@ -194,93 +215,108 @@ export async function svarPaInnmelding(innmeldingId, spillerId, tekst) {
   });
 }
 
+export async function avvisInnmelding(innmeldingId, behandletAvNavn) {
+  const ref = doc(db, SAM.INNMELDINGER, innmeldingId);
+  await runTransaction(db, async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists() || snap.data().status !== 'venter') throw new AlleredeBehandletFeil();
+    tx.update(ref, { status: 'avvist', behandletAvNavn, behandletTidspunkt: serverTimestamp() });
+  });
+}
+
 /**
- * Godkjenner en innmelding. Oppretter én bot-post per spiller i
- * motSpillere (relevant for lagstraffer). Kjører karma-sjekk per
- * spiller, med en "ladning"-modell: hver gang vedkommende selv har
- * meldt inn noen andre for en paragraf, lader de opp én mulig
- * dobling mot seg selv for samme paragraf. Ladningen brukes opp
- * neste gang de selv bøtelegges for den paragrafen (dobler boten),
- * og er da borte — helt til de melder inn på nytt og lader opp en
- * ny ladning.
+ * Har spilleren en ubrukt karma-ladning for denne paragrafen?
  *
- * @param {object} innmelding      — dokument fra lyttPaVentende (inkl. id)
- * @param {number} baseBelop       — endelig/justert beløp før evt. karma
- * @param {string} behandletAvNavn — navnet til den som godkjenner
+ * Ladningsmodell: hver gang spilleren har meldt inn NOEN ANDRE for en
+ * paragraf (og det ble godkjent), lader de opp én dobling mot seg selv
+ * for samme paragraf. Ladningen brukes opp neste gang de selv bøtelegges.
+ *
+ * Teller unike innmeldinger (en lagstraff gir én ladning, ikke én per
+ * spiller). Selvrapportering teller IKKE — §4 skal belønne ærlighet,
+ * ikke gi deg en karma-felle mot deg selv.
+ */
+async function harKarmaLadning(klubbId, spillerId, paragrafId) {
+  const meldtSnap = await getDocs(query(
+    collection(db, SAM.BOTER),
+    where('klubbId', '==', klubbId),
+    where('meldtAvId', '==', spillerId),
+    where('paragrafId', '==', paragrafId),
+  ));
+  const ladninger = new Set(
+    meldtSnap.docs.map(d => d.data())
+      .filter(b => b.innmeldingId && b.spillerId !== spillerId)
+      .map(b => b.innmeldingId)
+  );
+  if (!ladninger.size) return false;
+
+  const bruktSnap = await getDocs(query(
+    collection(db, SAM.BOTER),
+    where('klubbId', '==', klubbId),
+    where('spillerId', '==', spillerId),
+    where('paragrafId', '==', paragrafId),
+    where('karmaDoblet', '==', true),
+  ));
+  return bruktSnap.size < ladninger.size;
+}
+
+/**
+ * Godkjenner en innmelding. Oppretter én bot per spiller i motSpillere
+ * (lagstraff), med karma-dobling der det gjelder.
+ *
+ * Alt skrives i én transaksjon som først sjekker at innmeldingen
+ * fortsatt har status «venter». Det betyr at et dobbelttrykk, eller to
+ * admins som godkjenner samtidig, aldri kan gi doble bøter — og at en
+ * feil halvveis ikke etterlater et halvt godkjent sett.
+ *
+ * (Karma-oppslagene er spørringer og kan ikke gjøres inne i en
+ * Firestore-transaksjon på klient, så de kjøres rett før.)
  */
 export async function godkjennInnmelding(innmelding, baseBelop, behandletAvNavn) {
-  const { klubbId, motSpillere, paragrafId, paragrafTittel, meldtAvId, meldtAvNavn, kommentar } = innmelding;
+  const base = Math.round(Number(baseBelop));
+  if (!Number.isFinite(base) || base < 1 || base > MAKS_BOT) throw new UgyldigBelopFeil();
 
-  for (const mot of motSpillere) {
-    // Hvor mange ganger har spilleren selv meldt inn noen for denne paragrafen?
-    // NB: teller UNIKE innmeldinger, ikke antall bot-dokumenter — en innmelding
-    // med flere anklagede (f.eks. lagstraff) skal bare gi én ladning, ikke én
-    // per anklaget. Eldre bot-dokumenter uten innmeldingId (fra før denne
-    // fiksen) teller ikke med.
-    const meldtSnap = await getDocs(query(
-      collection(db, SAM.BOTER),
-      where('klubbId', '==', klubbId),
-      where('meldtAvId', '==', mot.id),
-      where('paragrafId', '==', paragrafId),
-    ));
-    const unikeInnmeldinger = new Set(
-      meldtSnap.docs.map(d => d.data().innmeldingId).filter(Boolean)
-    );
-    const antallLadninger = unikeInnmeldinger.size;
-
-    let karmaTreff = false;
-    if (antallLadninger > 0) {
-      // Hvor mange av disse ladningene er allerede brukt opp mot spilleren selv?
-      const karmaBruktSnap = await getDocs(query(
-        collection(db, SAM.BOTER),
-        where('klubbId', '==', klubbId),
-        where('spillerId', '==', mot.id),
-        where('paragrafId', '==', paragrafId),
-        where('karmaDoblet', '==', true),
-      ));
-      karmaTreff = karmaBruktSnap.size < antallLadninger;
-    }
-
-    const endeligBelop = karmaTreff ? baseBelop * 2 : baseBelop;
-
-    await addDoc(collection(db, SAM.BOTER), {
-      klubbId,
-      innmeldingId: innmelding.id,
-      spillerId: mot.id, spillerNavn: mot.navn,
-      paragrafId, paragrafTittel,
-      belop: endeligBelop,
-      karmaDoblet: karmaTreff,
-      kommentar: kommentar || '',
-      forklaring: innmelding.svar?.[mot.id]?.tekst || '',
-      meldtAvId, meldtAvNavn,
-      behandletAvNavn,
-      betalt: false,
-      likes: 0,
-      opprettet: serverTimestamp(),
-    });
+  const { klubbId, paragrafId } = innmelding;
+  const karma = {};
+  for (const mot of innmelding.motSpillere) {
+    karma[mot.id] = await harKarmaLadning(klubbId, mot.id, paragrafId);
   }
 
-  await updateDoc(doc(db, SAM.INNMELDINGER, innmelding.id), {
-    status: 'godkjent',
-    behandletAvNavn,
-    behandletTidspunkt: serverTimestamp(),
+  const innRef = doc(db, SAM.INNMELDINGER, innmelding.id);
+  await runTransaction(db, async tx => {
+    const snap = await tx.get(innRef);
+    if (!snap.exists() || snap.data().status !== 'venter') throw new AlleredeBehandletFeil();
+    const fersk = snap.data(); // bruk ferskeste svar/forklaringer
+
+    for (const mot of fersk.motSpillere) {
+      const karmaTreff = !!karma[mot.id];
+      tx.set(doc(collection(db, SAM.BOTER)), {
+        klubbId,
+        innmeldingId: innmelding.id,
+        spillerId: mot.id, spillerNavn: mot.navn,
+        paragrafId: fersk.paragrafId, paragrafTittel: fersk.paragrafTittel,
+        belop: karmaTreff ? Math.min(base * 2, MAKS_BOT_KARMA) : base,
+        karmaDoblet: karmaTreff,
+        kommentar: fersk.kommentar || '',
+        forklaring: fersk.svar?.[mot.id]?.tekst || '',
+        meldtAvId: fersk.meldtAvId, meldtAvNavn: fersk.meldtAvNavn,
+        behandletAvNavn,
+        betalt: false,
+        likes: 0,
+        opprettet: serverTimestamp(),
+      });
+    }
+    tx.update(innRef, { status: 'godkjent', behandletAvNavn, behandletTidspunkt: serverTimestamp() });
   });
 }
 
 // ════════════════════════════════════════════════════════
-// FAIR PLAY-POENG — den positive motvekten til bøtene. Ingen
-// godkjenning, ingen kroneverdi, ingen kobling til karma (bevisst
-// valg — se diskusjon i README/samtalen med klubben: kobler man
-// Fair Play-poeng til å redusere bøter, kan noen be en kompis
-// sende et poeng rett før de vet de blir meldt inn). Postes
-// direkte i feeden, én post per valgt spiller (samme mønster som
-// lagstraff for bøter).
+// FAIR PLAY-POENG — ingen godkjenning, ingen kroneverdi, ingen
+// kobling til karma (så ingen kan «kjøpe seg fri» via en kompis).
 // ════════════════════════════════════════════════════════
 export async function opprettFairPlayPoeng({ klubbId, meldtAvId, meldtAvNavn, motSpillere, kategoriId, kategoriTittel, kommentar }) {
   const batch = writeBatch(db);
   motSpillere.forEach(mot => {
-    const ref = doc(collection(db, SAM.FAIRPLAY));
-    batch.set(ref, {
+    batch.set(doc(collection(db, SAM.FAIRPLAY)), {
       klubbId,
       spillerId: mot.id, spillerNavn: mot.navn,
       kategoriId, kategoriTittel,
@@ -293,9 +329,6 @@ export async function opprettFairPlayPoeng({ klubbId, meldtAvId, meldtAvNavn, mo
   await batch.commit();
 }
 
-/**
- * Like/unlike et Fair Play-poeng — samme mønster som likeBot.
- */
 export async function likeFairPlay(id, enhetsId, harAlleredeLikt) {
   await updateDoc(doc(db, SAM.FAIRPLAY, id), {
     likes:   increment(harAlleredeLikt ? -1 : 1),
@@ -310,14 +343,7 @@ export async function settBetalt(botId, verdi) {
   await updateDoc(doc(db, SAM.BOTER, botId), { betalt: verdi });
 }
 
-/**
- * Like/unlike en bot. Sporer hvem som har likt via en anonym enhets-ID
- * (lagret i localStorage, se enhetsId() i botkassa-ui.js) i feltet
- * `likedAv` på selve bot-dokumentet, slik at én enhet ikke kan stable
- * opp uendelig mange likes på samme forseelse — og status er riktig
- * på tvers av innlastinger og andre enheter (siden feltet ligger i
- * Firestore og synces via lyttPaBoter).
- */
+/** Like/unlike — én like per enhet, sporet via anonym enhets-ID i `likedAv`. */
 export async function likeBot(botId, enhetsId, harAlleredeLikt) {
   await updateDoc(doc(db, SAM.BOTER, botId), {
     likes:   increment(harAlleredeLikt ? -1 : 1),
@@ -327,10 +353,7 @@ export async function likeBot(botId, enhetsId, harAlleredeLikt) {
 
 // ════════════════════════════════════════════════════════
 // NULLSTILLING — sletter all bot- og Fair Play-historikk for
-// klubben. Feed og statistikk bygger på begge samlingene, så en
-// tømming her nullstiller alt samtidig. Paragrafer og eventuell
-// ventende kø i botkasseInnmeldinger røres ikke.
-// Returnerer { boter, fairPlay } — antall slettet av hver.
+// klubben. Paragrafer og ventende innmeldinger røres ikke.
 // ════════════════════════════════════════════════════════
 async function slettAlleIKollection(samlingsnavn, klubbId) {
   const snap = await getDocs(query(collection(db, samlingsnavn), where('klubbId', '==', klubbId)));
@@ -351,16 +374,30 @@ export async function nullstillSesong(klubbId) {
 }
 
 // ════════════════════════════════════════════════════════
-// STATISTIKK-HJELPERE (rene funksjoner, ingen Firestore-kall)
+// STATISTIKK-HJELPERE (rene funksjoner)
+// Grupperer på ID, ikke navn — to spillere med samme navn blir
+// ikke slått sammen. Navnet hentes fra nyeste post (listene
+// kommer sortert nyest først).
 // ════════════════════════════════════════════════════════
-export function topListe(liste, felt) {
-  const tellinger = {};
-  liste.forEach(x => { const k = x[felt]; if (!k) return; tellinger[k] = (tellinger[k]||0) + 1; });
-  return Object.entries(tellinger).sort((a,b) => b[1]-a[1]).map(([key,antall]) => ({ key, antall }));
+export function rangering(liste, idFelt, navnFelt, verdiAv = () => 1) {
+  const rader = new Map();
+  for (const x of liste) {
+    const id = x[idFelt];
+    if (!id) continue;
+    const rad = rader.get(id) ?? { id, navn: x[navnFelt] ?? '?', verdi: 0 };
+    rad.verdi += verdiAv(x);
+    rader.set(id, rad);
+  }
+  return [...rader.values()].sort((a, b) => b.verdi - a.verdi);
 }
 
-export function sumListe(liste, groupFelt, sumFelt) {
-  const summer = {};
-  liste.forEach(x => { const k = x[groupFelt]; if (!k) return; summer[k] = (summer[k]||0) + (x[sumFelt]||0); });
-  return Object.entries(summer).sort((a,b) => b[1]-a[1]).map(([key,sum]) => ({ key, sum }));
+/** Én post per innmelding — så en lagstraff mot fire teller som én innmelding. */
+export function unikePerInnmelding(boter) {
+  const sett = new Set();
+  return boter.filter(b => {
+    const nokkel = b.innmeldingId || b.id;
+    if (sett.has(nokkel)) return false;
+    sett.add(nokkel);
+    return true;
+  });
 }

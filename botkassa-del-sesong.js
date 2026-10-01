@@ -50,7 +50,7 @@ async function lastFonter() {
       document.fonts.load('700 60px "DM Mono"'),
     ]);
   } catch (e) {
-    console.warn('[Botkassa] Kunne ikke forhåndslaste fonter, bruker systemfont som reserve:', e?.message);
+    console.warn('[Botkassen] Kunne ikke forhåndslaste fonter, bruker systemfont som reserve:', e?.message);
   }
 }
 
@@ -119,7 +119,7 @@ export async function tegnSesongbilde(data, format = 'story') {
 
   ctx.fillStyle = FARGER.gul;
   ctx.font = `${erStory ? 130 : 82}px "Bebas Neue"`;
-  ctx.fillText('BOTKASSA', midtX, erStory ? 268 : 164);
+  ctx.fillText('BOTKASSEN', midtX, erStory ? 268 : 164);
 
   ctx.fillStyle = FARGER.graMork;
   ctx.font = `${erStory ? 26 : 20}px "DM Sans"`;
@@ -174,7 +174,7 @@ export async function tegnSesongbilde(data, format = 'story') {
   // ── Footer ──
   ctx.font = `${erStory ? 22 : 17}px "DM Sans"`;
   ctx.fillStyle = FARGER.fotFarge;
-  ctx.fillText('LAGET MED BOTKASSA 🥒', midtX, hoyde - (erStory ? 66 : 36));
+  ctx.fillText('LAGET MED BOTKASSEN 🥒', midtX, hoyde - (erStory ? 66 : 36));
 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
@@ -186,26 +186,26 @@ export async function tegnSesongbilde(data, format = 'story') {
  */
 export async function delSesongbilde(data, format = 'story') {
   const blob = await tegnSesongbilde(data, format);
-  const fil  = new File([blob], `botkassa-sesong-${format}.png`, { type: 'image/png' });
+  const fil  = new File([blob], `botkassen-sesong-${format}.png`, { type: 'image/png' });
 
   if (navigator.canShare && navigator.canShare({ files: [fil] })) {
     try {
       await navigator.share({
         files: [fil],
-        title: 'Botkassa — sesongoppsummering',
-        text: `${data.klubbNavn} — Botkassa sesongen ${data.sesongAar} 🥒`,
+        title: 'Botkassen — sesongoppsummering',
+        text: `${data.klubbNavn} — Botkassen sesongen ${data.sesongAar} 🥒`,
       });
       return;
     } catch (e) {
       if (e?.name === 'AbortError') return; // brukeren avbrøt delingen selv — ikke en feil
-      console.warn('[Botkassa] navigator.share feilet, laster ned i stedet:', e?.message);
+      console.warn('[Botkassen] navigator.share feilet, laster ned i stedet:', e?.message);
     }
   }
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `botkassa-sesong-${format}.png`;
+  a.download = `botkassen-sesong-${format}.png`;
   document.body.appendChild(a);
   a.click();
   a.remove();
